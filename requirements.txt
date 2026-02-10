@@ -1,0 +1,35 @@
+# LegoGen - Procedural Block Building Generator
+# Python 3.8+ required
+
+# Core Dependencies
+numpy>=1.24.0
+trimesh>=4.0.0
+
+# Configuration Management
+python-dotenv>=1.0.0
+
+# GUI Framework
+PyQt5>=5.15.0
+pyvistaqt>=0.11.0
+
+# 3D Visualization
+pyvista>=0.43.0
+vtk>=9.2.0
+
+# Optional: Performance Enhancement (faster ray tracing)
+# pyembree>=0.1.6
+
+# Optional: Advanced Boolean Operations
+# Note: Blender integration requires Blender installed separately
+# OpenSCAD backend supported if installed
+
+# Development Dependencies (optional, for testing)
+# Uncomment if running tests or development:
+# pytest>=7.4.0
+# pytest-qt>=4.2.0
+# black>=23.0.0
+# pylint>=3.0.0
+
+# Additional mesh processing backends (optional)
+# python-fcl>=0.7.0
+# rtree>=1.0.0

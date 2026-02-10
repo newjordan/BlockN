@@ -1,0 +1,51 @@
+.aider*
+
+# Python caches/build outputs
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+.venv-public/
+venv/
+env/
+
+# Tooling/editor files
+.idea/
+.vscode/
+
+# Test/coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# Local env and logs
+.env
+.env.local
+*.log
+
+# Generated exports and scene saves
+exports/
+saves/
+snapshots/
+*.glb
+*.obj
+*.stl
+*.blend1
+*.blend2
+
+# Local temp files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
