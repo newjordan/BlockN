@@ -3,6 +3,15 @@
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
+## Screenshots
+
+![Doric Canonical](public/screenshot_1.png)
+![Doric Canonical — default](public/screenshot_2.png)
+![Doric Canonical — front view](public/screenshot_3.png)
+![Classical — custom columns](public/screenshot_4.png)
+![Classical — small temple](public/screenshot_5.png)
+![Doric Monumental](public/screenshot_6.png)
+
 ## What Is Included
 
 - PyQt5 + PyVista desktop GUI (`main.py`)
