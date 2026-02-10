@@ -5,11 +5,11 @@ It keeps the stable classical generator, GUI viewer, and export pipeline, and ex
 
 ## Screenshots
 
-![Doric Canonical — large build](public/screenshot_1.png)
-![Doric Monumental](public/screenshot_2.png)
-![Doric Canonical — front view](public/screenshot_3.png)
-![Doric Canonical — angled view](public/screenshot_4.png)
-![Classical — custom columns](public/screenshot_5.png)
+![Doric Canonical — large build](public/gui_canonical_large.png)
+![Doric Monumental](public/gui_monumental.png)
+![Doric Canonical — front view](public/gui_canonical_front.png)
+![Doric Canonical — angled view](public/gui_canonical_angled.png)
+![Classical — custom columns](public/gui_custom_columns.png)
 
 ## What Is Included
 
