@@ -3,7 +3,24 @@
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
-## Screenshots
+## Latest Renders: Blocks Architecture System (development build)
+
+These images come from the current development build of Blocks, the semantic
+architecture system that grew out of LegoGen. Every member is a named,
+human-scale stone, and each render shows real generated geometry in the
+green phosphor style of the workbench. The Gothic Cathedral Architect, the
+expanded classical forms, and the `blockn` CLI shown here are not yet part of
+this public branch.
+
+![Gothic cathedral, west front: paired spires, rose window, flying buttresses](public/gothic_cathedral_west.png)
+![Gothic cathedral, east end: chevet with ambulatory, clerestoried hemicycle and radiating buttresses](public/gothic_cathedral_chevet.png)
+![Gothic cathedral, side elevation](public/gothic_cathedral_side.png)
+![One architect, three styles: High Gothic, Early English, Rayonnant](public/gothic_cathedral_styles.png)
+![Desktop workbench with a generated cathedral](public/gui_cathedral_workbench.png)
+![Workbench: open roof to inspect the vaults](public/gui_cathedral_vaults.png)
+![Classical forms: temple, rotunda, basilica, aqueduct, amphitheatre, triumphal arch](public/classical_forms.png)
+
+## Screenshots (this branch)
 
 ![Doric Canonical — large build](public/gui_canonical_large.png)
 ![Doric Monumental](public/gui_monumental.png)
@@ -55,3 +72,7 @@ python3 -m unittest tests.test_scene -v
 python3 -m unittest tests.test_classical_generator -v
 python3 test_imports.py
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
