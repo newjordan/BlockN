@@ -3,6 +3,31 @@
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
+## New: Historic Architects (development build)
+
+![Castles, temples, pyramids and pagodas assembling stone by stone](public/historic_architects_preview.gif)
+
+Four new architects join the development build of Blocks. Each one composes a
+building from the rules of its own tradition, lays the masonry as lift-able
+stones, and is then checked against rules measured from the finished geometry.
+
+- **Castle**: Norman great towers (square or round), a shell keep on its motte, and a walled castle with rectangular or drum towers. Keeps are entered at the first floor and stand on a battered plinth.
+- **Egyptian**: an axial cult temple with a battered pylon, colonnaded court, clerestoried hypostyle hall and sanctuary. Every span is a single stone beam or slab; nothing is arched.
+- **Mesoamerican**: stepped pyramids in three traditions. The radial form has four stairs of exactly 91 steps, which with the platform count 365.
+- **Pagoda**: a timber frame of diminishing storeys with bracketed deep eaves around a free central pillar.
+
+![Norman castle with drum towers](public/historic_norman_castle_drum_towers.png)
+![Norman great tower](public/historic_norman_keep.png)
+![Egyptian temple](public/historic_egyptian_temple.png)
+![Egyptian temple with the roof slabs lifted](public/historic_egyptian_temple_interior.png)
+![Calendar pyramid](public/historic_calendar_pyramid.png)
+![Five-storey timber pagoda](public/historic_timber_pagoda.png)
+![All twelve variants](public/historic_architects_all.png)
+
+These are original compositions built from each tradition's rules, not
+replicas of named monuments. Like the cathedral below, these architects are
+not yet part of this public branch.
+
 ## Latest Renders: Blocks Architecture System (development build)
 
 These images come from the current development build of Blocks, the semantic
