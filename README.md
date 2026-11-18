@@ -3,6 +3,18 @@
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
+## Timberwright houses (development build)
+
+![Twin-gable half-timbered house in the green-on-black workbench](public/timberwright-neon.png)
+
+Timberwright generates longhouses, gable-front houses, and twin-gable houses.
+New houses appear in **green outlines on black**. The GLB export can keep the
+wood, plaster, glazing, and roof finishes shown below, or omit materials for
+neutral geometry. The generator is in the development build, not this public
+classical release.
+
+![The three roof plans with their optional GLB finishes](public/timber-street.png)
+
 ## New: Historic Architects (development build)
 
 ![Castles, temples, pyramids and pagodas assembling stone by stone](public/historic_architects_preview.gif)
