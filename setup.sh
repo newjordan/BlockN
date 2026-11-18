@@ -18,6 +18,11 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
+PYTHON_OK=$(python3 -c 'import sys; print(int(sys.version_info >= (3, 10)))')
+if [ "$PYTHON_OK" != "1" ]; then
+    echo "Error: Python 3.10 or newer is required (found $PYTHON_VERSION)"
+    exit 1
+fi
 echo "Found Python $PYTHON_VERSION"
 echo ""
 
@@ -69,8 +74,10 @@ echo ""
 
 # Run tests to verify installation
 echo "Running tests to verify installation..."
+set +e
 python3 -m unittest discover tests -v
 TEST_EXIT_CODE=$?
+set -e
 echo ""
 
 if [ $TEST_EXIT_CODE -eq 0 ]; then

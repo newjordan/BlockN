@@ -52,16 +52,16 @@ class Block:
             # Pass dimensions to the updated function
             self.mesh = create_block_mesh(self.position, dimensions=self.dimensions)
         elif self.block_type == WEDGE:
-            # Use the updated create_wedge_mesh signature
-            # Get orientation from parameters, default to '+X' if not specified
+            # Scene positions are geometric centers; the wedge primitive takes the base center.
             orientation = self.parameters.get('orientation', '+X')
-            self.mesh = create_wedge_mesh(self.position, dimensions=self.dimensions, orientation=orientation)
+            base_position = np.asarray(self.position, dtype=float) - np.array([0.0, self.dimensions[1] / 2.0, 0.0])
+            self.mesh = create_wedge_mesh(base_position, dimensions=self.dimensions, orientation=orientation)
         elif self.block_type == CYLINDER:
             # Prioritize parameters for cylinder dimensions
             radius = self.parameters.get('radius', self.dimensions[0] / 2.0) # Default radius from X dim if not in params
             height = self.parameters.get('height', self.dimensions[1])       # Default height from Y dim if not in params
-            # Pass parameters dict itself for other potential settings (like sections)
-            self.mesh = create_cylinder_mesh(self.position, radius=radius, height=height, parameters=self.parameters)
+            base_position = np.asarray(self.position, dtype=float) - np.array([0.0, float(height) / 2.0, 0.0])
+            self.mesh = create_cylinder_mesh(base_position, radius=radius, height=height, parameters=self.parameters)
         else:
             # Default or fallback to cube if type is unknown
             print(f"Warning: Unknown block type '{self.block_type}'. Creating cube.")
@@ -168,13 +168,16 @@ class Scene:
                 # Cube height is actual_dimensions[1], which is already block_height
                 new_mesh = create_block_mesh(position, dimensions=actual_dimensions)
             elif block_type == WEDGE:
-                # Wedge height is actual_dimensions[1], which is already block_height
+                # Wedge height is actual_dimensions[1], which is already block_height.
+                # Primitive position is the base center; scene position is the geometric center.
                 orientation = actual_parameters.get('orientation', '+X')
-                new_mesh = create_wedge_mesh(position, dimensions=actual_dimensions, orientation=orientation)
+                base_position = np.asarray(position, dtype=float) - np.array([0.0, block_height / 2.0, 0.0])
+                new_mesh = create_wedge_mesh(base_position, dimensions=actual_dimensions, orientation=orientation)
             elif block_type == CYLINDER:
                 # Use actual parameters and pre-calculated block_height
                 radius = actual_parameters.get('radius', actual_dimensions[0] / 2.0)
-                new_mesh = create_cylinder_mesh(position, radius=radius, height=block_height, parameters=actual_parameters)
+                base_position = np.asarray(position, dtype=float) - np.array([0.0, block_height / 2.0, 0.0])
+                new_mesh = create_cylinder_mesh(base_position, radius=radius, height=block_height, parameters=actual_parameters)
             else:
                 print(f"Warning: Unknown block type '{block_type}' requested. Cannot generate mesh.")
                 return None # Cannot proceed without a mesh
@@ -219,8 +222,12 @@ class Scene:
                 base_y = position[1] - block_height / 2.0 # Use actual block_height
                 # Use floor for X/Z grid index calculation
                 check_x = int(np.floor(position[0]))
-                # Calculate the integer grid cell containing the *base* face of the new block.
-                base_cell_y = int(base_y - 1e-9) # Y index of the cell containing the bottom face
+                # occupied_cells stores the cell capped by an existing block's top face
+                # (index = floor(top_y) - 1). Match that cell: the highest integer plane
+                # at or below this base. int(base_y - eps) jumps a cell as soon as the
+                # base crosses an integer, so a 1e-6 stack fails and a 0.1 same-column
+                # gap never reaches the HYBRID distance check.
+                base_cell_y = int(np.floor(base_y)) - 1
                 # Use floor for Z grid index calculation
                 check_z = int(np.floor(position[2]))
 
@@ -236,7 +243,7 @@ class Scene:
                 if not grid_check_passed:
                     # If the grid check fails, it means the cell where the base should be is not marked as occupied (by a top surface below).
                     # Check if the required support cell is below ground (Y=-1). If so, it's an invalid placement.
-                    if base_cell_y < 0:
+                    if base_y < -support_tolerance:
                          print(f"Warning: Block at {position} is attempting to place below ground level (base in cell {support_coord_needed}). Skipping.")
                     else:
                          # Only print floating warning if not below ground

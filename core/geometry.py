@@ -56,12 +56,11 @@ def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
                       dimensions: np.ndarray = np.array([1.0, 1.0, 1.0]),
                       orientation: str = '+X') -> trimesh.Trimesh:
     """
-    Creates a wedge mesh with its geometric center at the specified position.
-    The base lies on the XZ plane relative to the position's Y coordinate minus half the height.
+    Creates a wedge mesh whose base center is at `position` and whose height extends +Y.
     The slope direction is determined by the 'orientation' parameter.
 
     Args:
-        position: Geometric center of the wedge (x, y, z).
+        position: Center of the base face (x, y, z). Height extends upward from this Y.
         dimensions: Width(X), Height(Y), Depth(Z) of the wedge's bounding box.
         orientation: Direction of the slope ('+X', '-X', '+Z', '-Z').
                      '+X' means the peak edge is at maximum X.
@@ -117,24 +116,24 @@ def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
         v5 = [ half_w, height, half_d] # Top front right
         vertices = np.array([v0, v1, v2, v3, v4, v5])
         faces = np.array([
-            # Base (Y=0) - Reversed winding for outward normal
-            [2, 1, 0], [3, 2, 0],
+            # Outward winding. Mixed winding here cancels signed volume to 0.
+            [0, 1, 2], [0, 2, 3],
             [0, 3, 4],             # Left Side (X=-hw, Triangle)
-            [1, 2, 5],             # Right Side (X=+hw, Triangle)
+            [1, 5, 2],             # Right Side (X=+hw, Triangle)
             [3, 2, 5], [3, 5, 4],  # Front Vertical Face (Z=+hd)
-            [0, 1, 5], [0, 5, 4]   # Sloped Face (connecting Z=-hd base to Z=+hd peak)
+            [0, 5, 1], [0, 4, 5]   # Sloped Face (connecting Z=-hd base to Z=+hd peak)
         ])
     elif orientation == '-Z': # Peak edge at Z = -half_d (v4, v5)
         v4 = [-half_w, height, -half_d] # Top back left
         v5 = [ half_w, height, -half_d] # Top back right
         vertices = np.array([v0, v1, v2, v3, v4, v5])
         faces = np.array([
-            # Base (Y=0) - Reversed winding for outward normal
+            # Outward winding. Mixed winding here cancels signed volume to 0.
             [2, 1, 0], [3, 2, 0],
-            [0, 3, 4],             # Left Side (X=-hw, Triangle)
-            [1, 2, 5],             # Right Side (X=+hw, Triangle)
-            [0, 1, 5], [0, 5, 4],  # Back Vertical Face (Z=-hd)
-            [3, 2, 5], [3, 5, 4]   # Sloped Face (connecting Z=+hd base to Z=-hd peak)
+            [3, 4, 0],             # Left Side (X=-hw, Triangle)
+            [5, 2, 1],             # Right Side (X=+hw, Triangle)
+            [1, 5, 0], [5, 4, 0],  # Back Vertical Face (Z=-hd)
+            [2, 5, 3], [5, 4, 3]   # Sloped Face (connecting Z=+hd base to Z=-hd peak)
         ])
     else:
         raise ValueError(f"Invalid orientation for wedge: {orientation}")
@@ -142,23 +141,17 @@ def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     # Create the mesh centered at origin (base center)
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
-    # Keep wedge generation resilient when optional trimesh deps (e.g. scipy) are missing.
+    # fix_normals needs networkx. Without it the explicit winding is inward,
+    # signed volume is negative, and boolean unions treat the solid as empty.
     try:
         mesh.fix_normals()
     except Exception:
-        # Winding is already explicitly defined above; skipping normal repair is acceptable fallback.
         pass
+    if mesh.is_watertight and mesh.volume < 0:
+        mesh.invert()
 
-    # Translate to the desired position (center of the base face)
-    # The mesh origin is already at the base center, so just translate by position.
-    # However, the position passed from generator assumes bottom-face-center Y.
-    # Adjust Y translation like in create_block_mesh. <-- This comment is now misleading
-    # The mesh origin is at the base center (0,0,0).
-    # We want the geometric center (0, height/2, 0 relative to base center)
-    # to end up at the target 'position'.
-    # Therefore, translate the mesh (origin at base center) by: position - [0, height/2, 0]
-    translation_vector = position - np.array([0, height / 2.0, 0])
-    mesh.apply_translation(translation_vector)
+    # Mesh origin is the base center. `position` is that point; height extends +Y.
+    mesh.apply_translation(np.asarray(position, dtype=float))
 
     # --- Basic UV Generation (Box Projection Approximation) ---
     # Scale vertex positions relative to bounds to approximate UVs (0 to 1 range)
@@ -177,11 +170,11 @@ def create_cylinder_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
                          radius: float = 0.5, height: float = 1.0,
                          parameters: Optional[Dict[str, Any]] = None) -> trimesh.Trimesh:
     """
-    Creates a simple cylinder mesh with its geometric center at `position`,
-    aligned along the Y-axis (height direction).
+    Creates a simple cylinder mesh whose base center is at `position`,
+    aligned along the Y-axis (height extends +Y).
 
     Args:
-        position: Geometric center position (x, y, z).
+        position: Center of the base face (x, y, z).
         radius: Radius of the cylinder.
         height: Height of the cylinder (along Y).
         parameters: Optional dictionary of parameters. Expects 'sections' (int).
@@ -200,9 +193,10 @@ def create_cylinder_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     rotation = trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0])
     cylinder_primitive.apply_transform(rotation)
 
-    # Translate so the geometric center is at the desired position.
-    # The primitive center is at (0, 0, 0) after rotation.
-    cylinder_primitive.apply_translation(position)
+    # Primitive is centered on the origin after rotation. Shift by half the height
+    # so `position` is the base center and the cylinder extends +Y.
+    base_to_center = np.asarray(position, dtype=float) + np.array([0.0, height / 2.0, 0.0])
+    cylinder_primitive.apply_translation(base_to_center)
 
     # Create a standard Trimesh object from the primitive's data
     mesh = trimesh.Trimesh(vertices=cylinder_primitive.vertices, faces=cylinder_primitive.faces)
