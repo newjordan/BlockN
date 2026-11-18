@@ -16,6 +16,11 @@ if errorlevel 1 (
 )
 
 python --version
+python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"
+if errorlevel 1 (
+    echo Error: Python 3.10 or newer is required
+    exit /b 1
+)
 echo.
 
 REM Create virtual environment

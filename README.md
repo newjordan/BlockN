@@ -75,6 +75,8 @@ this public branch.
 
 ## Quick Start
 
+Requires Python 3.10 or newer.
+
 ```bash
 python3 -m venv .venv-public
 source .venv-public/bin/activate  # Windows: .venv-public\Scripts\activate
