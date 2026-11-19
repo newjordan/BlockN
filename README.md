@@ -3,6 +3,29 @@
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
+## Promo video and new architects (development build)
+
+[![BlockN promo video: the workbench, the period architects, per-part physics data and settlements](public/blockn-promo-cover.png)](public/blockn-promo.mp4)
+
+[Watch the 69-second narrated video (MP4, 29 MB)](public/blockn-promo.mp4)
+
+The video shows the desktop workbench and the `blockn` command line generating
+buildings in the development build. New since the last update:
+
+- **Materials and mass**: every member has one of 28 substances, from limestone, brick and oak to slate, lead and glass, with density, strength and friction. Each build reports its total mass, a bill of materials and a vertical load check.
+- **Weathering and exports**: surfaces weather by exposure under an `age` control. Builds export to GLB, glTF, OBJ, PLY, STL, OFF, Collada, 3MF and USD, and to FBX through Blender, with a physics manifest that lists every member's substance, mass and friction.
+- **Persian Architect**: iwan courts, chahar-taq and caravanserai.
+- **Victorian Architect**: two-up-two-down and bay-fronted brick terraces with coped party walls, and a Gothic Revival villa.
+- **Settlement planner**: English villages (street, green and market town) and Roman town quarters, with each building made by its own architect.
+
+![Workbench with a generated Gothic cathedral and its outliner](public/blockn-workbench-cathedral.png)
+![Per-member physics data from the export: substance, mass, friction and size](public/blockn-physics-data.png)
+![Victorian bay-fronted terrace](public/blockn-victorian-terrace.png)
+![English village laid out by the settlement planner](public/blockn-english-village.png)
+
+Like the sections below, these features are in the development build and are
+not yet part of this public branch.
+
 ## Timberwright houses (development build)
 
 ![Twin-gable half-timbered house in the green-on-black workbench](public/timberwright-neon.png)
