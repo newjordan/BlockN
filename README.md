@@ -5,9 +5,9 @@ It keeps the stable classical generator, GUI viewer, and export pipeline, and ex
 
 ## Promo video and new architects (development build)
 
-[![BlockN promo video: the workbench, the period architects, per-part physics data and settlements](public/blockn-promo-cover.png)](public/blockn-promo.mp4)
+[![BlockN promo video: the workbench, the period architects, per-part physics data and settlements](public/blockn-promo-cover.png)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
 
-[Watch the 69-second narrated video (MP4, 29 MB)](public/blockn-promo.mp4)
+[Watch the 69-second narrated video (MP4, 29 MB)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
 
 The video shows the desktop workbench and the `blockn` command line generating
 buildings in the development build. New since the last update:
