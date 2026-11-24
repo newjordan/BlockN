@@ -3,6 +3,28 @@
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
+## Two new architects: Chinese and Dravidian (development build)
+
+<a href="https://newjordan.github.io/BlockN/public/blockn-two-architects.mp4"><img src="public/blockn-two-architects-cover.png" alt="BlockN demo: a Chinese timber hall and a Dravidian gateway tower building themselves member by member" width="270"></a>
+
+[Watch the 37-second demo (MP4, 37 MB, vertical, with sound)](https://newjordan.github.io/BlockN/public/blockn-two-architects.mp4)
+
+The demo shows each building assembling itself member by member in the
+workbench's own viewport. The member counts and quality results on screen
+come from the builds themselves. Two more architects join the development
+build of Blocks:
+
+- **Chinese Architect**: `chinese-hall` and `chinese-palace-hall`. A timber hall on a stone terrace, with bays that shorten outward from the widest middle one, bracket sets measured in doukou, roof courses that steepen toward the ridge, eaves that lift at the corners, owl-tails on the ridge and a line of beasts down every hip. The palace hall raises a second eave over nine bays.
+- **Dravidian Architect**: `dravidian-gopuram` and `dravidian-vimana`. A gateway tower of diminishing talas, each under its prastara, kudu arches and a parapet of miniature shrines, with a passage that runs open through the stone base. The vimana is granite throughout, raised over a pillared hall.
+
+![Chinese hall with a hip-and-gable roof](public/blockn-chinese-hall.png)
+![Chinese palace hall with two eaves](public/blockn-chinese-palace-hall.png)
+![Dravidian gateway tower](public/blockn-dravidian-gopuram.png)
+![Dravidian vimana with its pillared hall](public/blockn-dravidian-vimana.png)
+
+Like the sections below, these architects are in the development build and
+are not yet part of this public branch.
+
 ## Promo video and new architects (development build)
 
 [![BlockN promo video: the workbench, the period architects, per-part physics data and settlements](public/blockn-promo-cover.png)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
