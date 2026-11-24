@@ -1,6 +1,6 @@
 # Block by Block Architect Knowledge According to History (Public Build)
 
-This repository is the stripped, shareable production branch of LegoGen.
+This repository is the stripped, shareable production branch of BlockN and follows the development of SOTA models with new architecture styles over time. 
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
 
 ## Two new architects: Chinese and Dravidian (development build)
