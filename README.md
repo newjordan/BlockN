@@ -1,4 +1,4 @@
-# LegoGen (Public Build)
+# Block by Block Architect Knowledge According to History (Public Build)
 
 This repository is the stripped, shareable production branch of LegoGen.
 It keeps the stable classical generator, GUI viewer, and export pipeline, and excludes in-progress planning/session artifacts.
