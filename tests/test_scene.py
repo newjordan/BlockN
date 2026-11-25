@@ -315,19 +315,86 @@ class TestSceneSupportCheck(unittest.TestCase):
         block2 = self.scene.add_block(position=pos2, color=GREEN, dimensions=np.array([1.0, 1.0, 1.0]))
 
         self.assertIsNotNone(block1, "First block should be added")
-        # With the corrected grid check, this should now fail.
-        # The grid check looks for support in cell (0, 0, 0) because block2's base is at Y=1.1 (cell 1).
-        # Cell (0, 0, 0) *is* occupied by block1's top surface.
-        # However, the HYBRID check's volumetric ray cast should fail because the distance > tolerance.
-        # If pyembree is not available, it falls back to the grid check, which passes.
-        # Let's assume pyembree IS available for the test and expect failure.
-        # If pyembree is NOT available, HYBRID falls back to GRID. The GRID check *will* pass because
-        # cell (0, 0, 0) is occupied by block1, even though block2 is far above it.
-        # Therefore, if pyembree is missing, we expect the block TO BE ADDED.
-        # If pyembree IS available, the volumetric check should fail, and the block should NOT be added.
-        # We adjust the assertion based on the observed behavior (pyembree missing).
-        self.assertIsNotNone(block2, "Block too far above support SHOULD be added when pyembree is missing (HYBRID falls back to GRID)")
-        self.assertEqual(len(self.scene.blocks), 2) # Both blocks should remain when pyembree is missing
+        self.assertIsNone(block2, "A 0.1 gap is not support")
+        self.assertEqual(len(self.scene.blocks), 1)
+
+
+    def test_fractional_height_stacks(self):
+        """A block whose height is not a whole number still supports the next one."""
+        lower = self.scene.add_block(
+            position=np.array([0.0, 0.75, 0.0]),
+            color=RED,
+            dimensions=np.array([1.0, 1.5, 1.0]),
+        )
+        upper = self.scene.add_block(
+            position=np.array([0.0, 2.25, 0.0]),
+            color=GREEN,
+            dimensions=np.array([1.0, 1.5, 1.0]),
+        )
+        self.assertIsNotNone(lower)
+        self.assertIsNotNone(upper)
+        self.assertEqual(len(self.scene.blocks), 2)
+
+    def test_wide_block_supports_a_block_on_its_edge(self):
+        support = self.scene.add_block(
+            position=np.array([0.0, 0.5, 0.0]),
+            color=RED,
+            dimensions=np.array([3.0, 1.0, 1.0]),
+        )
+        edge = self.scene.add_block(
+            position=np.array([1.2, 1.5, 0.0]),
+            color=GREEN,
+            dimensions=np.array([1.0, 1.0, 1.0]),
+        )
+        self.assertIsNotNone(support)
+        self.assertIsNotNone(edge)
+
+    def test_loaded_block_supports_a_new_block(self):
+        self.scene.from_dict({
+            "blocks": [
+                {
+                    "block_id": 0,
+                    "position": [0, 0.5, 0],
+                    "color": [255, 0, 0, 255],
+                    "block_type": CUBE,
+                    "dimensions": [1, 1, 1],
+                    "parameters": {},
+                }
+            ],
+            "next_block_id": 1,
+        })
+        stacked = self.scene.add_block(
+            position=np.array([0.0, 1.5, 0.0]),
+            color=GREEN,
+            dimensions=np.array([1.0, 1.0, 1.0]),
+        )
+        self.assertIsNotNone(stacked)
+
+
+class TestCollisionFallback(unittest.TestCase):
+    def test_volume_index_rejects_overlap_when_fcl_is_unavailable(self):
+        import core.scene as scene_mod
+
+        original = scene_mod.trimesh.collision.CollisionManager
+
+        def unavailable(*_args, **_kwargs):
+            raise RuntimeError("python-fcl missing")
+
+        scene_mod.trimesh.collision.CollisionManager = unavailable
+        try:
+            scene = Scene()
+            self.assertIsInstance(scene.collision_manager, scene_mod._MeshCollisionIndex)
+            scene.support_check_mode = "OFF"
+            first = scene.add_block(position=np.array([0.0, 0.5, 0.0]), color=RED, dimensions=np.array([1.0, 1.0, 1.0]))
+            second = scene.add_block(position=np.array([0.4, 0.5, 0.0]), color=GREEN, dimensions=np.array([1.0, 1.0, 1.0]))
+            touching = scene.add_block(position=np.array([1.0, 0.5, 0.0]), color=BLUE, dimensions=np.array([1.0, 1.0, 1.0]))
+        finally:
+            scene_mod.trimesh.collision.CollisionManager = original
+
+        self.assertIsNotNone(first)
+        self.assertIsNone(second)
+        self.assertIsNotNone(touching)
+        self.assertEqual(len(scene.collision_manager._objs), 2)
 
 
 if __name__ == '__main__':

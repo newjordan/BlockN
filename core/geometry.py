@@ -14,8 +14,31 @@ from .materials import ColorTuple
 # --- End Helper Function ---
 
 
-def create_block_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
-                      dimensions: np.ndarray = np.array([1.0, 1.0, 1.0])) -> trimesh.Trimesh:
+def _as_vector(value: Optional[np.ndarray], default: np.ndarray) -> np.ndarray:
+    if value is None:
+        return np.array(default, dtype=float, copy=True)
+    return np.array(value, dtype=float, copy=True)
+
+
+def _orient_faces_outward(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
+    """Flip triangles so each normal points away from the vertex centroid.
+
+    Wedges are convex, so the centroid of their vertices lies inside the solid.
+    This keeps the mesh a real volume without requiring networkx.
+    """
+    vertices = np.asarray(vertices, dtype=float)
+    oriented = np.array(faces, dtype=int, copy=True)
+    centroid = vertices.mean(axis=0)
+    for index, face in enumerate(oriented):
+        triangle = vertices[face]
+        normal = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
+        if np.dot(normal, triangle.mean(axis=0) - centroid) < 0.0:
+            oriented[index] = face[::-1]
+    return oriented
+
+
+def create_block_mesh(position: Optional[np.ndarray] = None,
+                      dimensions: Optional[np.ndarray] = None) -> trimesh.Trimesh:
     """
     Creates a rectangular prism mesh centered at a specified position.
 
@@ -26,6 +49,8 @@ def create_block_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     Returns:
         A trimesh.Trimesh object representing the prism.
     """
+    position = _as_vector(position, np.zeros(3))
+    dimensions = _as_vector(dimensions, np.ones(3))
     # Create a box primitive centered at the origin
     primitive = trimesh.primitives.Box(extents=dimensions)
     # Translate the primitive so the center of its bottom face is at the desired position.
@@ -52,8 +77,8 @@ def create_block_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
 
     return mesh
 
-def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
-                      dimensions: np.ndarray = np.array([1.0, 1.0, 1.0]),
+def create_wedge_mesh(position: Optional[np.ndarray] = None,
+                      dimensions: Optional[np.ndarray] = None,
                       orientation: str = '+X') -> trimesh.Trimesh:
     """
     Creates a wedge mesh whose base center is at `position` and whose height extends +Y.
@@ -71,6 +96,8 @@ def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     Returns:
         A trimesh.Trimesh object representing the wedge.
     """
+    position = _as_vector(position, np.zeros(3))
+    dimensions = _as_vector(dimensions, np.ones(3))
     width = dimensions[0]
     height = dimensions[1]
     depth = dimensions[2]
@@ -138,15 +165,10 @@ def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     else:
         raise ValueError(f"Invalid orientation for wedge: {orientation}")
 
-    # Create the mesh centered at origin (base center)
-    mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-
-    # fix_normals needs networkx. Without it the explicit winding is inward,
-    # signed volume is negative, and boolean unions treat the solid as empty.
-    try:
-        mesh.fix_normals()
-    except Exception:
-        pass
+    # Hand-authored windings are not consistent on every orientation.
+    # Orient them before the mesh is treated as a solid.
+    faces = _orient_faces_outward(vertices, faces)
+    mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
     if mesh.is_watertight and mesh.volume < 0:
         mesh.invert()
 
@@ -166,7 +188,7 @@ def create_wedge_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     return mesh
 
 
-def create_cylinder_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
+def create_cylinder_mesh(position: Optional[np.ndarray] = None,
                          radius: float = 0.5, height: float = 1.0,
                          parameters: Optional[Dict[str, Any]] = None) -> trimesh.Trimesh:
     """
@@ -182,6 +204,7 @@ def create_cylinder_mesh(position: np.ndarray = np.array([0.0, 0.0, 0.0]),
     Returns:
         A trimesh.Trimesh object representing the cylinder.
     """
+    position = _as_vector(position, np.zeros(3))
     params = parameters or {}
     sections = params.get('sections', 16) # Default to 16 sections if not specified
 
@@ -230,11 +253,14 @@ def optimize_blocks(blocks: list) -> List[trimesh.Trimesh]:
         return []
 
     def _color_mesh(mesh: trimesh.Trimesh, color: ColorTuple) -> trimesh.Trimesh:
-        colored = mesh.copy()
-        if not hasattr(colored, "visual"):
-            colored.visual = trimesh.visual.ColorVisuals(mesh=colored)
-        face_colors = np.tile(color, (len(colored.faces), 1))
-        colored.visual.face_colors = face_colors
+        # Build a fresh mesh. Copying a TextureVisuals mesh imports Pillow,
+        # and the fallback path used to drop the whole color group when that failed.
+        colored = trimesh.Trimesh(
+            vertices=np.array(mesh.vertices, copy=True),
+            faces=np.array(mesh.faces, copy=True),
+            process=False,
+        )
+        colored.visual.face_colors = np.tile(np.asarray(color, dtype=np.uint8), (len(colored.faces), 1))
         return colored
 
     # 1. Group blocks by color
@@ -256,7 +282,7 @@ def optimize_blocks(blocks: list) -> List[trimesh.Trimesh]:
         combined = None
         if len(mesh_list) == 1:
             print(f"  Processing color {color}: Single mesh, no union needed.")
-            combined = mesh_list[0].copy() # Copy to avoid modifying original block mesh
+            combined = mesh_list[0]
         elif len(mesh_list) > 1:
             print(f"  Processing color {color}: {len(mesh_list)} meshes need union. Attempting trimesh internal union...")
             try:

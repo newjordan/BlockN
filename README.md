@@ -1,161 +1,79 @@
-# Block by Block Architect Knowledge According to History (Public Build)
+# BlockN
 
-This repository is the stripped, shareable production branch of BlockN and follows the development of SOTA models with new architecture styles over time. 
-It keeps the stable classical generator, GUI viewer, and export pipeline.
+BlockN's public build generates a Greek temple from Doric and Ionic rules and shows it in a desktop workbench. Every member is a block: cubes for the podium, entablature, and stairs, cylinders for column shafts, and wedges for the pediment.
 
-## Two new architects: Chinese and Dravidian (development build)
+This repository is that classical generator, the workbench, and the export tools. Promotional images and video under `public/` for other architects (Chinese, Dravidian, Gothic, Victorian, and the rest) are reference media. Those generators are not in this branch, and this code does not produce them.
 
-<a href="https://newjordan.github.io/BlockN/public/blockn-two-architects.mp4"><img src="public/blockn-two-architects-cover.png" alt="BlockN demo: a Chinese timber hall and a Dravidian gateway tower building themselves member by member" width="270"></a>
+![Doric canonical temple in the workbench](public/gui_canonical_large.png)
+![Doric monumental temple](public/gui_monumental.png)
+![Front view](public/gui_canonical_front.png)
+![Angled view](public/gui_canonical_angled.png)
+![Custom column counts](public/gui_custom_columns.png)
 
-[Watch the 37-second demo (MP4, 37 MB, vertical, with sound)](https://newjordan.github.io/BlockN/public/blockn-two-architects.mp4)
+## What you can generate
 
-The demo shows each building assembling itself member by member in the
-workbench's own viewport. The member counts and quality results on screen
-come from the builds themselves. Two more architects join the development
-build of Blocks:
+- **Orders:** Doric and Ionic, or `Random` (chosen from those two by the seed). The alias `ioinic` resolves to Ionic.
+- **Presets:** `compact`, `canonical`, and `monumental`. They scale column diameter, spacing, entablature depth, pediment slope, and the column caps.
+- **Members:** podium, colonnade, architrave, frieze (Doric triglyphs or an Ionic relief band), cornice, pediment, roof, and ridge.
+- **Circulation:** a front stair and side exit stairs. Large footprints can add wrap stairs. A foundation apron and doorway thresholds are optional. Entrance markers are optional and off unless requested.
+- **Controls:** front and side column counts, pediment slope, entablature depth, side roof overhang, and the wrap-stair thresholds. Column count `0` means the generator fits an even count to the facade.
 
-- **Chinese Architect**: `chinese-hall` and `chinese-palace-hall`. A timber hall on a stone terrace, with bays that shorten outward from the widest middle one, bracket sets measured in doukou, roof courses that steepen toward the ridge, eaves that lift at the corners, owl-tails on the ridge and a line of beasts down every hip. The palace hall raises a second eave over nine bays.
-- **Dravidian Architect**: `dravidian-gopuram` and `dravidian-vimana`. A gateway tower of diminishing talas, each under its prastara, kudu arches and a parapet of miniature shrines, with a passage that runs open through the stone base. The vimana is granite throughout, raised over a pillared hall.
+Width and depth below 6 are raised to 6 so a four-column facade can fit. Podium height is the integer third of the requested height, and at least 1. The same seed, order, preset, and overrides rebuild the same temple.
 
-![Chinese hall with a hip-and-gable roof](public/blockn-chinese-hall.png)
-![Chinese palace hall with two eaves](public/blockn-chinese-palace-hall.png)
-![Dravidian gateway tower](public/blockn-dravidian-gopuram.png)
-![Dravidian vimana with its pillared hall](public/blockn-dravidian-vimana.png)
+Block positions are geometric centers. Dimensions are width (X), height (Y), and depth (Z).
 
-Like the sections below, these architects are in the development build and
-are not yet part of this public branch.
+## Requirements
 
-## Promo video and new architects (development build)
+Python 3.10 or newer.
 
-[![BlockN promo video: the workbench, the period architects, per-part physics data and settlements](public/blockn-promo-cover.png)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
+The generator needs NumPy, SciPy, Trimesh, and manifold3d. Overlap checks use python-fcl when it imports, and a mesh-volume check when it does not. The workbench needs PyQt5, PyVista, pyvistaqt, and VTK.
 
-[Watch the 69-second narrated video (MP4, 29 MB)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
+No model weights are downloaded. The OpenAI and Blender entries in `.env.example` are accepted and unused. `core/blender_union_script.py` can boolean-union meshes inside Blender, but neither the workbench nor the `blockn` command calls it.
 
-The video shows the desktop workbench and the `blockn` command line generating
-buildings in the development build. New since the last update:
-
-- **Materials and mass**: every member has one of 28 substances, from limestone, brick and oak to slate, lead and glass, with density, strength and friction. Each build reports its total mass, a bill of materials and a vertical load check.
-- **Weathering and exports**: surfaces weather by exposure under an `age` control. Builds export to GLB, glTF, OBJ, PLY, STL, OFF, Collada, 3MF and USD, and to FBX through Blender, with a physics manifest that lists every member's substance, mass and friction.
-- **Persian Architect**: iwan courts, chahar-taq and caravanserai.
-- **Victorian Architect**: two-up-two-down and bay-fronted brick terraces with coped party walls, and a Gothic Revival villa.
-- **Settlement planner**: English villages (street, green and market town) and Roman town quarters, with each building made by its own architect.
-
-![Workbench with a generated Gothic cathedral and its outliner](public/blockn-workbench-cathedral.png)
-![Per-member physics data from the export: substance, mass, friction and size](public/blockn-physics-data.png)
-![Victorian bay-fronted terrace](public/blockn-victorian-terrace.png)
-![English village laid out by the settlement planner](public/blockn-english-village.png)
-
-Like the sections below, these features are in the development build and are
-not yet part of this public branch.
-
-## Timberwright houses (development build)
-
-![Twin-gable half-timbered house in the green-on-black workbench](public/timberwright-neon.png)
-
-Timberwright generates longhouses, gable-front houses, and twin-gable houses.
-New houses appear in **green outlines on black**. The GLB export can keep the
-wood, plaster, glazing, and roof finishes shown below, or omit materials for
-neutral geometry. The generator is in the development build, not this public
-classical release.
-
-![The three roof plans with their optional GLB finishes](public/timber-street.png)
-
-## New: Historic Architects (development build)
-
-![Castles, temples, pyramids and pagodas assembling stone by stone](public/historic_architects_preview.gif)
-
-Four new architects join the development build of Blocks. Each one composes a
-building from the rules of its own tradition, lays the masonry as lift-able
-stones, and is then checked against rules measured from the finished geometry.
-
-- **Castle**: Norman great towers (square or round), a shell keep on its motte, and a walled castle with rectangular or drum towers. Keeps are entered at the first floor and stand on a battered plinth.
-- **Egyptian**: an axial cult temple with a battered pylon, colonnaded court, clerestoried hypostyle hall and sanctuary. Every span is a single stone beam or slab; nothing is arched.
-- **Mesoamerican**: stepped pyramids in three traditions. The radial form has four stairs of exactly 91 steps, which with the platform count 365.
-- **Pagoda**: a timber frame of diminishing storeys with bracketed deep eaves around a free central pillar.
-
-![Norman castle with drum towers](public/historic_norman_castle_drum_towers.png)
-![Norman great tower](public/historic_norman_keep.png)
-![Egyptian temple](public/historic_egyptian_temple.png)
-![Egyptian temple with the roof slabs lifted](public/historic_egyptian_temple_interior.png)
-![Calendar pyramid](public/historic_calendar_pyramid.png)
-![Five-storey timber pagoda](public/historic_timber_pagoda.png)
-![All twelve variants](public/historic_architects_all.png)
-
-These are original compositions built from each tradition's rules, not
-replicas of named monuments. Like the cathedral below, these architects are
-not yet part of this public branch.
-
-## Latest Renders: Blocks Architecture System (development build)
-
-These images come from the current development build of Blocks, the semantic
-architecture system that grew out of LegoGen. Every member is a named,
-human-scale stone, and each render shows real generated geometry in the
-green phosphor style of the workbench. The Gothic Cathedral Architect, the
-expanded classical forms, and the `blockn` CLI shown here are not yet part of
-this public branch.
-
-![Gothic cathedral, west front: paired spires, rose window, flying buttresses](public/gothic_cathedral_west.png)
-![Gothic cathedral, east end: chevet with ambulatory, clerestoried hemicycle and radiating buttresses](public/gothic_cathedral_chevet.png)
-![Gothic cathedral, side elevation](public/gothic_cathedral_side.png)
-![One architect, three styles: High Gothic, Early English, Rayonnant](public/gothic_cathedral_styles.png)
-![Desktop workbench with a generated cathedral](public/gui_cathedral_workbench.png)
-![Workbench: open roof to inspect the vaults](public/gui_cathedral_vaults.png)
-![Classical forms: temple, rotunda, basilica, aqueduct, amphitheatre, triumphal arch](public/classical_forms.png)
-
-## Screenshots (this branch)
-
-![Doric Canonical — large build](public/gui_canonical_large.png)
-![Doric Monumental](public/gui_monumental.png)
-![Doric Canonical — front view](public/gui_canonical_front.png)
-![Doric Canonical — angled view](public/gui_canonical_angled.png)
-![Classical — custom columns](public/gui_custom_columns.png)
-
-## What Is Included
-
-- PyQt5 + PyVista desktop GUI (`main.py`)
-- Headless CLI generation/export (`cli.py`)
-- Classical generator with preset/override controls
-- GLB, JSON, and PNG export paths
-- Unit tests for geometry, scene, and classical generation
-
-## Quick Start
-
-Requires Python 3.10 or newer.
+## Setup
 
 ```bash
-python3 -m venv .venv-public
-source .venv-public/bin/activate  # Windows: .venv-public\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-python3 main.py
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[gui]"
 ```
 
-## Environment Separation
+`pip install -r requirements.txt` installs the same runtime packages without the `blockn` command. `setup.sh` (and `setup.bat` on Windows) creates `.venv`, installs the package with the GUI and test extras, and runs the tests.
 
-Keep this repo independent from your development repo:
+Copy `.env.example` to `.env` only when you want to change the built-in defaults. The file is optional. `DEFAULT_WIDTH`, `DEFAULT_HEIGHT`, and `DEFAULT_DEPTH` set the workbench spin boxes and the CLI defaults. Export folders are created when you export, not when configuration is read.
 
-- Public repo venv: `.venv-public`
-- Dev repo venv: use a different folder name (for example `.venv-dev`)
-- Do not share `.env` files between the two repos
-
-This avoids dependency and config drift between production and experimental work.
-
-## CLI Examples
+## Workbench
 
 ```bash
-python3 cli.py generate --classical-order Doric --seed 123 --out builds/classical.glb --summary
-python3 cli.py generate --classical-order Ionic --classical-preset monumental --classical-front-columns 8 --classical-side-columns 8 --classical-pediment-slope 1.1 --classical-entablature-depth 1.2 --classical-side-roof-overhang 1.25 --classical-foundation-apron --width 24 --depth 24 --summary
-python3 cli.py generate --classical-order Doric --classical-preset canonical --classical-wrap-min-front-span 22 --classical-wrap-min-side-span 14 --classical-wrap-front-coverage 0.60 --width 20 --height 12 --depth 14 --summary
+python main.py
 ```
+
+The window is **BlockN Classical Workbench**.
+
+- **Controls** is one scrolling column: generation, export, and color. Generation sets size, seed, order, preset, column counts, proportions, wrap thresholds, and the foundation apron. An empty seed is filled with the value actually used, so the temple can be rebuilt. A non-integer seed is rejected. Export unions same-colored meshes, then writes GLB or JSON. **Export Snapshot (PNG)** saves the viewport. Color picks a swatch; click a block in the viewport to paint it. The selected swatch keeps a gold border.
+- **Outliner** lists each member by id, element, and position. Click a row to highlight that block.
+
+Generate builds the full temple. Overlap and support filters are turned off while the pieces are placed, then restored. Leaving overlap on used to drop intersecting cornices, pediment wedges, and stairs.
+
+## Command line
+
+```bash
+blockn generate --classical-order Doric --seed 7 --width 10 --height 6 --depth 8 --summary
+blockn generate --classical-order Ionic --classical-preset monumental --classical-front-columns 8 --classical-side-columns 8 --width 24 --depth 24 --out exports/ionic.glb --summary
+blockn generate --classical-order Doric --classical-preset canonical --classical-foundation-apron --classical-wrap-min-front-span 18 --classical-wrap-min-side-span 12 --classical-wrap-front-coverage 0.54 --width 20 --depth 14 --json exports/scene.json --summary
+```
+
+`python cli.py generate ...` does the same thing. `--summary` prints the block count, mesh bounds, order, preset, footprint, column counts, and whether the placement checks passed. `--width`, `--height`, and `--depth` must be positive. `--optimize` unions meshes of the same color before the GLB export.
 
 ## Tests
 
 ```bash
-python3 -m unittest tests.test_geometry -v
-python3 -m unittest tests.test_scene -v
-python3 -m unittest tests.test_classical_generator -v
-python3 test_imports.py
+python -m pip install -e ".[gui,dev]"
+python -m pytest
 ```
+
+GitHub Actions runs that install and `pytest` on Python 3.11 and 3.12. `python test_imports.py` checks that the runtime imports load and exits non-zero when one fails.
 
 ## License
 

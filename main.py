@@ -5,6 +5,7 @@ from gui.main_window import MainWindow
 def main():
     """Main function to run the application."""
     app = QApplication(sys.argv)
+    app.setApplicationName("BlockN")
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

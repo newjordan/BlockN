@@ -9,15 +9,18 @@ from PyQt5.QtCore import QEasingCurve, QPropertyAnimation, QThread, Qt, QTimer, 
 from PyQt5.QtWidgets import (
     QDockWidget,
     QFileDialog,
+    QFrame,
     QGraphicsOpacityEffect,
     QMainWindow,
     QMessageBox,
+    QScrollArea,
     QStatusBar,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from config import config
 from core.generators.classical import generate_classical_building
 from core.geometry import optimize_blocks
 from core.io import export_meshes_to_glb, save_scene_to_json
@@ -53,7 +56,6 @@ QWidget {
 QDockWidget {
     border: 2px solid rgba(255, 244, 220, 0.25);
     border-radius: 12px;
-    margin-top: 22px;
     background: qlineargradient(
         x1: 0, y1: 0, x2: 1, y2: 1,
         stop: 0 rgba(20, 33, 50, 0.95),
@@ -87,7 +89,7 @@ QDockWidget > QWidget {
     border: 1px solid rgba(255, 244, 220, 0.16);
 }
 
-QDockWidget#GenerationDock > QWidget {
+QDockWidget#ControlsDock > QWidget {
     background: qlineargradient(
         x1: 0, y1: 0, x2: 1, y2: 0,
         stop: 0 rgba(23, 38, 56, 0.95),
@@ -100,31 +102,9 @@ QDockWidget#GenerationDock > QWidget {
     );
 }
 
-QDockWidget#SceneDock > QWidget {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 0, y2: 1,
-        stop: 0 rgba(20, 34, 52, 0.95),
-        stop: 0.22 rgba(28, 52, 74, 0.92),
-        stop: 0.23 rgba(21, 35, 53, 0.95),
-        stop: 0.46 rgba(21, 35, 53, 0.95),
-        stop: 0.47 rgba(42, 67, 88, 0.90),
-        stop: 0.52 rgba(22, 36, 54, 0.95),
-        stop: 1 rgba(17, 29, 45, 0.95)
-    );
-}
-
-QDockWidget#ColorDock > QWidget {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 rgba(23, 38, 56, 0.95),
-        stop: 0.30 rgba(22, 37, 56, 0.95),
-        stop: 0.31 rgba(45, 69, 91, 0.92),
-        stop: 0.36 rgba(22, 37, 56, 0.95),
-        stop: 0.68 rgba(20, 34, 52, 0.95),
-        stop: 0.69 rgba(40, 63, 83, 0.90),
-        stop: 0.73 rgba(21, 35, 53, 0.95),
-        stop: 1 rgba(17, 29, 44, 0.95)
-    );
+QScrollArea, QScrollArea > QWidget > QWidget {
+    background: transparent;
+    border: none;
 }
 
 QDockWidget#OutlinerDock > QWidget {
@@ -170,6 +150,12 @@ QLabel#PanelSubtitle {
     letter-spacing: 1px;
     color: #ffd67f;
     padding-bottom: 2px;
+}
+
+QLabel#PanelHint {
+    color: #ffe7bc;
+    font-size: 11px;
+    padding-top: 2px;
 }
 
 QPushButton {
@@ -450,21 +436,10 @@ class GenerationThread(QThread):
         super().__init__(parent)
         self.params = params
 
-    def _apply_scene_runtime_settings(self, scene: Scene):
-        support_enabled = bool(self.params.get("support_enabled", True))
-        overlap_enabled = bool(self.params.get("strict_overlap", True))
-
-        # KISS baseline: support toggle uses GRID check only.
-        scene.support_check_mode = "GRID" if support_enabled else "OFF"
-
-        if scene.collision_manager is None:
-            scene.enable_strict_overlap_prevention = False
-        else:
-            scene.enable_strict_overlap_prevention = overlap_enabled
-
     def run(self):
-        new_scene = Scene()
-        self._apply_scene_runtime_settings(new_scene)
+        # Overlap and support stay at the scene defaults. The generator turns
+        # both filters off while it places members, then restores them.
+        new_scene = Scene(use_collision=False)
         error_message = ""
 
         try:
@@ -509,20 +484,18 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("LegoGen")
+        self.setWindowTitle("BlockN Classical Workbench")
         self.setGeometry(100, 100, 1280, 820)
+        self.setMinimumSize(960, 640)
         self.setObjectName("MainWindow")
 
-        self.scene = Scene()
+        self.scene = Scene(use_collision=False)
         self._selected_color: Optional[ColorTuple] = None
         self._last_optimized_meshes: Optional[List[trimesh.Trimesh]] = None
         self._generation_thread: Optional[GenerationThread] = None
         self._panel_animations: List[QPropertyAnimation] = []
         self._entry_animation_started = False
         self._dock_widgets: List[QDockWidget] = []
-
-        self._support_enabled = True
-        self._strict_overlap_enabled = True
 
         central = QWidget()
         central.setObjectName("CentralCanvas")
@@ -541,7 +514,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar(self))
         self.statusBar().showMessage("Ready", 2000)
 
-        self._bootstrap_scene_defaults()
+        self.outliner_panel.update_list(self.scene.blocks)
         self.update_viewport()
 
         QTimer.singleShot(140, self._run_entry_animation)
@@ -549,18 +522,7 @@ class MainWindow(QMainWindow):
     def _create_panels(self):
         self.generation_panel = GenerationPanel()
         self.generation_panel.generate_triggered.connect(self.handle_generate_request)
-        self.generation_panel.support_toggled.connect(self.handle_support_toggled)
-        self.generation_panel.overlap_toggled.connect(self.handle_overlap_toggled)
-
-        generation_dock = QDockWidget("<> Generation //", self)
-        generation_dock.setObjectName("GenerationDock")
-        generation_dock.setFeatures(
-            QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
-        )
-        generation_dock.setWidget(self.generation_panel)
-        generation_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, generation_dock)
-        self._dock_widgets.append(generation_dock)
+        self.generation_panel.notice.connect(self._show_notice)
 
         self.scene_export_panel = SceneExportPanel()
         self.scene_export_panel.optimize_triggered.connect(self.handle_optimize_request)
@@ -568,33 +530,41 @@ class MainWindow(QMainWindow):
         self.scene_export_panel.export_json_triggered.connect(self.handle_export_json_request)
         self.scene_export_panel.export_snapshot_triggered.connect(self.handle_export_snapshot_request)
 
-        scene_dock = QDockWidget("[] Scene / Export <>", self)
-        scene_dock.setObjectName("SceneDock")
-        scene_dock.setFeatures(
-            QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
-        )
-        scene_dock.setWidget(self.scene_export_panel)
-        scene_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, scene_dock)
-        self.splitDockWidget(generation_dock, scene_dock, Qt.Vertical)
-        self._dock_widgets.append(scene_dock)
-
         self.color_palette_panel = ColorPalettePanel()
         self.color_palette_panel.color_selected.connect(self.handle_color_selected)
 
-        color_dock = QDockWidget("++ Color Palette []", self)
-        color_dock.setObjectName("ColorDock")
-        color_dock.setFeatures(
+        controls = QWidget()
+        controls.setObjectName("ControlsContent")
+        controls_layout = QVBoxLayout(controls)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(4)
+        controls_layout.addWidget(self.generation_panel)
+        controls_layout.addWidget(self.scene_export_panel)
+        controls_layout.addWidget(self.color_palette_panel)
+        controls_layout.addStretch(1)
+
+        scroll = QScrollArea()
+        scroll.setObjectName("ControlsScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setWidget(controls)
+        scroll.viewport().setAutoFillBackground(False)
+
+        controls_dock = QDockWidget("Controls", self)
+        controls_dock.setObjectName("ControlsDock")
+        controls_dock.setFeatures(
             QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
         )
-        color_dock.setWidget(self.color_palette_panel)
-        color_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, color_dock)
-        self.splitDockWidget(scene_dock, color_dock, Qt.Vertical)
-        self._dock_widgets.append(color_dock)
+        controls_dock.setWidget(scroll)
+        controls_dock.setMinimumWidth(340)
+        controls_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, controls_dock)
+        self._dock_widgets.append(controls_dock)
 
         self.outliner_panel = OutlinerPanel()
-        outliner_dock = QDockWidget("// Outliner []", self)
+        self.outliner_panel.block_selected.connect(self.handle_outliner_selected)
+        outliner_dock = QDockWidget("Outliner", self)
         outliner_dock.setObjectName("OutlinerDock")
         outliner_dock.setFeatures(
             QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
@@ -630,27 +600,8 @@ class MainWindow(QMainWindow):
             self._panel_animations.append(animation)
             QTimer.singleShot(index * 90, animation.start)
 
-    def _bootstrap_scene_defaults(self):
-        collision_enabled = self.scene.collision_manager is not None
-        self.generation_panel.apply_collision_defaults(collision_enabled)
-
-        self._support_enabled = self.generation_panel.support_check_cb.isChecked()
-        self._strict_overlap_enabled = self.generation_panel.overlap_check_cb.isChecked()
-
-        if not collision_enabled:
-            self.statusBar().showMessage(
-                "Collision backend unavailable. Using collision-free mode (support defaults OFF).",
-                5000,
-            )
-
-        self._sync_scene_runtime_settings()
-
-    def _sync_scene_runtime_settings(self):
-        self.scene.support_check_mode = "GRID" if self._support_enabled else "OFF"
-        if self.scene.collision_manager is None:
-            self.scene.enable_strict_overlap_prevention = False
-        else:
-            self.scene.enable_strict_overlap_prevention = self._strict_overlap_enabled
+    def _show_notice(self, message: str):
+        self.statusBar().showMessage(message, 4000)
 
     def handle_color_selected(self, color: ColorTuple):
         self._selected_color = color
@@ -674,28 +625,15 @@ class MainWindow(QMainWindow):
         self.viewport.update_block_visuals(block)
         self.statusBar().showMessage(f"Applied color to block {block_id}.", 2000)
 
-    def handle_support_toggled(self, checked: bool):
-        self._support_enabled = checked
-        self._sync_scene_runtime_settings()
-        status = "ON" if checked else "OFF"
-        self.statusBar().showMessage(f"Support check: {status}", 2000)
-
-    def handle_overlap_toggled(self, checked: bool):
-        if checked and self.scene.collision_manager is None:
-            self.generation_panel.overlap_check_cb.blockSignals(True)
-            self.generation_panel.overlap_check_cb.setChecked(False)
-            self.generation_panel.overlap_check_cb.blockSignals(False)
-            self._strict_overlap_enabled = False
-            self.statusBar().showMessage(
-                "Strict overlap check unavailable without collision backend.",
-                4000,
-            )
+    def handle_outliner_selected(self, block_id: int):
+        self.viewport.highlight_block(block_id)
+        block = self.scene.get_block_by_id(block_id)
+        if block is None:
+            self.statusBar().showMessage(f"Block {block_id} highlighted.", 1500)
             return
-
-        self._strict_overlap_enabled = checked
-        self._sync_scene_runtime_settings()
-        status = "ON" if checked else "OFF"
-        self.statusBar().showMessage(f"Strict overlap: {status}", 2000)
+        element = block.parameters.get("element") if block.parameters else None
+        kind = element or block.block_type
+        self.statusBar().showMessage(f"Selected {kind} block {block_id}.", 2000)
 
     def handle_generate_request(
         self,
@@ -737,8 +675,6 @@ class MainWindow(QMainWindow):
             "classical_wrap_min_front_span": classical_wrap_min_front_span,
             "classical_wrap_min_side_span": classical_wrap_min_side_span,
             "classical_wrap_front_coverage": classical_wrap_front_coverage,
-            "support_enabled": self._support_enabled,
-            "strict_overlap": self._strict_overlap_enabled,
         }
 
         self._set_generation_controls_enabled(False)
@@ -763,19 +699,22 @@ class MainWindow(QMainWindow):
             return
 
         self.scene = new_scene
-        self._sync_scene_runtime_settings()
         self.update_viewport()
         self.outliner_panel.update_list(self.scene.blocks)
         metrics = getattr(self.scene, "last_classical_metrics", None)
         if isinstance(metrics, dict):
+            invariant_ok = metrics.get("invariants", {}).get("ok", True)
+            placement = "placement checks passed" if invariant_ok else "placement checks failed"
             self.statusBar().showMessage(
                 (
                     "Generation complete:"
                     f" {len(self.scene.blocks)} blocks | order={metrics.get('order')}"
                     f" preset={metrics.get('preset')}"
+                    f" footprint={metrics.get('footprint_width')}x{metrics.get('footprint_depth')}"
                     f" columns={metrics.get('front_columns')}x{metrics.get('side_columns')}"
+                    f" | {placement}"
                 ),
-                4500,
+                6000,
             )
         else:
             self.statusBar().showMessage(f"Generation complete: {len(self.scene.blocks)} blocks.", 3000)
@@ -786,6 +725,7 @@ class MainWindow(QMainWindow):
 
     def _set_generation_controls_enabled(self, enabled: bool):
         self.generation_panel.generate_button.setEnabled(enabled)
+        self.generation_panel.generate_button.setText("Generate Temple" if enabled else "Generating…")
         self.scene_export_panel.optimize_button.setEnabled(enabled)
 
     def update_viewport(self):
@@ -823,7 +763,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("No meshes available to export.", 4000)
             return
 
-        default_path = str(Path("builds") / "scene.glb")
+        default_path = str(config.EXPORT_DIR / "scene.glb")
         file_name, _ = QFileDialog.getSaveFileName(
             self,
             "Export GLB",
@@ -844,7 +784,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"GLB exported: {file_name}", 3000)
 
     def handle_export_json_request(self):
-        default_path = str(Path("builds") / "scene.json")
+        default_path = str(config.SAVE_DIR / "scene.json")
         file_name, _ = QFileDialog.getSaveFileName(
             self,
             "Export JSON",
