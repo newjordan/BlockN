@@ -58,33 +58,19 @@ class ViewportWidget(QWidget):
         pv_mesh = self._prepare_render_mesh(pv.wrap(block.mesh))
 
         try:
-            mesh_kwargs = self._base_mesh_render_kwargs()
-            if (
-                hasattr(block.mesh.visual, "vertex_colors")
-                and block.mesh.visual.vertex_colors.shape[0] == pv_mesh.n_points
-            ):
-                pv_mesh.point_data["colors"] = block.mesh.visual.vertex_colors
-                actor = self.plotter.add_mesh(
-                    pv_mesh,
-                    scalars="colors",
-                    rgb=True,
-                    show_edges=True,
-                    edge_color=VIEWPORT_EDGE,
-                    line_width=1,
-                    **mesh_kwargs,
-                )
-            else:
-                color_rgb = [channel / 255.0 for channel in block.color[:3]]
-                opacity = block.color[3] / 255.0
-                actor = self.plotter.add_mesh(
-                    pv_mesh,
-                    color=color_rgb,
-                    opacity=opacity,
-                    show_edges=True,
-                    edge_color=VIEWPORT_EDGE,
-                    line_width=1,
-                    **mesh_kwargs,
-                )
+            # Block colors are stored as RGBA. Passing that array to PyVista with
+            # rgb=True fails once normals split the vertices, and the actor was dropped.
+            color_rgb = [channel / 255.0 for channel in block.color[:3]]
+            opacity = block.color[3] / 255.0 if len(block.color) > 3 else 1.0
+            actor = self.plotter.add_mesh(
+                pv_mesh,
+                color=color_rgb,
+                opacity=opacity,
+                show_edges=True,
+                edge_color=VIEWPORT_EDGE,
+                line_width=1,
+                **self._base_mesh_render_kwargs(),
+            )
         except Exception:
             return None
 
@@ -197,29 +183,18 @@ class ViewportWidget(QWidget):
                 "line_width": 1,
                 **self._base_mesh_render_kwargs(),
             }
-
-            if (
-                hasattr(mesh, "visual")
-                and hasattr(mesh.visual, "vertex_colors")
-                and len(mesh.visual.vertex_colors) == pv_mesh.n_points
-            ):
-                pv_mesh.point_data["colors"] = mesh.visual.vertex_colors
-                self.plotter.add_mesh(pv_mesh, scalars="colors", rgb=True, **kwargs)
-            elif (
-                hasattr(mesh, "visual")
-                and hasattr(mesh.visual, "face_colors")
-                and len(mesh.visual.face_colors) == mesh.faces.shape[0]
-            ):
-                pv_mesh.cell_data["colors"] = mesh.visual.face_colors
-                self.plotter.add_mesh(
-                    pv_mesh,
-                    scalars="colors",
-                    rgb=True,
-                    preference="cell",
-                    **kwargs,
-                )
-            else:
-                self.plotter.add_mesh(pv_mesh, color=VIEWPORT_FALLBACK, **kwargs)
+            # Optimized meshes are one color per group. Use that color directly so
+            # a change in vertex count after normal splitting cannot drop the mesh.
+            color = VIEWPORT_FALLBACK
+            visual = getattr(mesh, "visual", None)
+            face_colors = getattr(visual, "face_colors", None)
+            if face_colors is not None and len(face_colors):
+                color = [channel / 255.0 for channel in face_colors[0][:3]]
+            self.plotter.add_mesh(
+                pv_mesh,
+                color=color,
+                **kwargs,
+            )
 
         if meshes:
             self.apply_stable_camera()
@@ -271,6 +246,17 @@ class ViewportWidget(QWidget):
             self._highlighted_actor = actor
 
         self.block_picked.emit(block_id)
+
+    def highlight_block(self, block_id: int):
+        self._clear_highlight()
+        for actor, ident in self._actors.items():
+            if ident != block_id or not actor.prop:
+                continue
+            actor.prop.edge_color = VIEWPORT_HIGHLIGHT
+            actor.prop.line_width = 3
+            self._highlighted_actor = actor
+            break
+        self.plotter.render()
 
     def closeEvent(self, event):
         self.plotter.close()

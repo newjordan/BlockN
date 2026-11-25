@@ -12,7 +12,7 @@ def generate_podium(
     height: int,
     seed: Optional[int] = None,
     clear_scene: bool = True,
-    base_position: np.ndarray = np.array([0.0, 0.0, 0.0]),
+    base_position: Optional[np.ndarray] = None,
 ):
     """
     Generates a simple solid podium using CUBE blocks.
@@ -41,16 +41,23 @@ def generate_podium(
     # Use a consistent color for the podium
     podium_color = (180, 180, 180, 255) # Light gray
 
+    origin = np.zeros(3, dtype=float) if base_position is None else np.array(base_position, dtype=float)
     # Iterate using new convention: X=Width, Y=Height, Z=Depth
     for x in range(width):
         for z in range(depth): # Iterate Z for depth
             for y in range(height): # Iterate Y for height
                 # Calculate corner position (min x, y, z of the unit cell)
-                corner_pos = base_position + np.array([x, y, z])
+                corner_pos = origin + np.array([x, y, z])
                 # Calculate geometric center position (assuming unit dimensions 1x1x1)
                 center_pos = corner_pos + np.array([0.5, 0.5, 0.5])
                 # Add CUBE blocks at calculated geometric center position.
-                scene.add_block(center_pos, block_type=CUBE, color=podium_color, dimensions=np.array([1.0, 1.0, 1.0]))
+                scene.add_block(
+                    center_pos,
+                    block_type=CUBE,
+                    color=podium_color,
+                    dimensions=np.array([1.0, 1.0, 1.0]),
+                    parameters={"element": "podium"},
+                )
 
     print("Podium generation complete.")
 

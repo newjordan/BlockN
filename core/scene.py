@@ -1,21 +1,18 @@
-import time # For benchmarking collision checks
 from dataclasses import dataclass, field
 import numpy as np
 import trimesh
-import trimesh.collision # Import CollisionManager
-from typing import List, Optional, Dict, Any
-
-# Import pyembree if available for faster raycasting, but don't require it
-try:
-    import pyembree
-    _pyembree_available = True
-except ImportError:
-    _pyembree_available = False
-    print("Info: pyembree not found. Raycasting for support checks may be slower.")
-
+from typing import List, Optional, Dict, Any, Tuple
 
 from .geometry import create_block_mesh, create_wedge_mesh, create_cylinder_mesh # Import geometry functions
 from .materials import ColorTuple # Import color definitions
+
+# A new block counts as supported when its base is this close to the ground
+# or to another block's top face.
+SUPPORT_TOLERANCE = 1e-5
+# Plan overlap must have positive area. Edge contact is not support.
+SUPPORT_OVERLAP = 1e-6
+# Boolean intersection thinner than this is treated as a shared face, not a collision.
+OVERLAP_VOLUME = 1e-6
 
 # Define block type constants
 CUBE = "CUBE"
@@ -100,19 +97,91 @@ class Block:
             "color": list(self.color), # Convert tuple to list
             "block_type": self.block_type,
             "dimensions": self.dimensions.tolist(), # Add dimensions
-            "parameters": self.parameters # Add parameters
+            "parameters": _json_value(self.parameters) # Add parameters
         }
 
 
-def _create_collision_manager(use_collision: bool) -> Optional[trimesh.collision.CollisionManager]:
-    """Create a collision manager if available; otherwise gracefully disable collision."""
+def _json_value(value: Any) -> Any:
+    """Convert numpy values so scene dictionaries can be written as JSON."""
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _bounds_overlap(a_bounds: np.ndarray, b_bounds: np.ndarray, tolerance: float = SUPPORT_TOLERANCE) -> bool:
+    """True when two AABBs overlap by more than a shared face."""
+    return bool(
+        np.all(a_bounds[0] < b_bounds[1] - tolerance)
+        and np.all(a_bounds[1] > b_bounds[0] + tolerance)
+    )
+
+
+def _positive_overlap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> bool:
+    """True when two meshes share volume. Face contact returns False."""
+    if not _bounds_overlap(mesh.bounds, other.bounds):
+        return False
+    try:
+        intersection = trimesh.boolean.intersection([mesh, other], engine="manifold")
+    except Exception:
+        # Fail closed when the volume test cannot run: a strict AABB overlap
+        # is reported as a collision rather than silently allowed.
+        return True
+    if intersection is None or intersection.is_empty:
+        return False
+    volume = getattr(intersection, "volume", 0.0)
+    if volume != volume:
+        return True
+    return float(volume) > OVERLAP_VOLUME
+
+
+class _MeshCollisionIndex:
+    """Overlap index used when python-fcl cannot be loaded.
+
+    Names are stored in ``_objs`` so callers can count tracked meshes the same
+    way they do with trimesh's CollisionManager.
+    """
+
+    def __init__(self):
+        self._objs: Dict[str, trimesh.Trimesh] = {}
+
+    def add_object(self, name: str, mesh: trimesh.Trimesh):
+        self._objs[name] = mesh
+
+    def in_collision_single(self, mesh: trimesh.Trimesh) -> bool:
+        return any(_positive_overlap(mesh, other) for other in self._objs.values())
+
+    def in_collision_internal(self, return_names: bool = False, return_data: bool = False):
+        pairs = set()
+        items = list(self._objs.items())
+        for index, (name, mesh) in enumerate(items):
+            for other_name, other in items[index + 1:]:
+                if _positive_overlap(mesh, other):
+                    pairs.add(tuple(sorted((name, other_name))))
+        collided = bool(pairs)
+        if return_names and return_data:
+            return collided, pairs, []
+        if return_names:
+            return collided, pairs
+        if return_data:
+            return collided, []
+        return collided
+
+
+def _create_collision_manager(use_collision: bool):
+    """Create an overlap index. python-fcl is preferred; volume checks are the fallback."""
     if not use_collision:
         return None
     try:
         return trimesh.collision.CollisionManager()
     except Exception as exc:
-        print(f"Info: Collision backend unavailable ({exc}). Running with use_collision=False.")
-        return None
+        print(f"Info: python-fcl unavailable ({exc}). Using mesh-volume overlap checks.")
+        return _MeshCollisionIndex()
 
 
 class Scene:
@@ -127,8 +196,10 @@ class Scene:
         self.enable_strict_overlap_prevention: bool = collision_enabled
         # Setting to control structural support checking level ("HYBRID", "GRID", "OFF")
         self.support_check_mode: str = "HYBRID" if collision_enabled else "OFF"
-        # Grid-based tracking for support checks
+        # Legacy cell keys, kept in sync with the support surfaces below.
         self.occupied_cells = set() # Stores (x, y, z) integer tuples
+        # (block_id, x_min, x_max, z_min, z_max, top_y)
+        self._support_surfaces: List[Tuple[int, float, float, float, float, float]] = []
 
     def add_block(self, position: np.ndarray, block_type: str = CUBE, color: Optional[ColorTuple] = None,
                   parameters: Optional[Dict[str, Any]] = None, dimensions: Optional[np.ndarray] = None) -> Optional[Block]:
@@ -192,16 +263,12 @@ class Scene:
 
         # --- 2. Check for Collisions (Conditional) ---
         if self.enable_strict_overlap_prevention and self.collision_manager is not None:
-            start_time = time.time() # Task 3.3 Benchmarking
             try:
                 is_collision = self.collision_manager.in_collision_single(new_mesh)
             except Exception as e:
                  # Handle potential errors within the collision check itself
                  print(f"Error during collision check for block at {position}: {e}. Skipping block.")
                  return None
-            check_duration = time.time() - start_time
-            # Optional: More verbose logging for performance analysis
-            # print(f"Collision check took: {check_duration:.6f}s")
 
             if is_collision:
                 print(f"Warning: Overlap detected at {position} for {block_type}. Skipping block addition.")
@@ -209,135 +276,16 @@ class Scene:
 
         # --- 2b. Check for Support (Based on Mode) ---
         if self.support_check_mode != "OFF":
-            # Define constants for support check
-            support_tolerance = 1e-5 # How close to ground or another block counts as supported
-            min_y = new_mesh.bounds[0, 1] # Bottom Y coordinate of the new mesh
-
-            # Check if block is close enough to the ground (Y=0)
-            is_on_ground = abs(min_y) < support_tolerance
-
-            if not is_on_ground:
-                # --- Grid-Based Support Check ---
-                # Calculate the base Y coordinate using the actual block_height determined earlier.
-                base_y = position[1] - block_height / 2.0 # Use actual block_height
-                # Use floor for X/Z grid index calculation
-                check_x = int(np.floor(position[0]))
-                # occupied_cells stores the cell capped by an existing block's top face
-                # (index = floor(top_y) - 1). Match that cell: the highest integer plane
-                # at or below this base. int(base_y - eps) jumps a cell as soon as the
-                # base crosses an integer, so a 1e-6 stack fails and a 0.1 same-column
-                # gap never reaches the HYBRID distance check.
-                base_cell_y = int(np.floor(base_y)) - 1
-                # Use floor for Z grid index calculation
-                check_z = int(np.floor(position[2]))
-
-                # The support coordinate we need to find in occupied_cells is the one matching the base cell
-                # of the new block. occupied_cells stores the top-surface cell index of existing blocks.
-                support_coord_needed = (check_x, base_cell_y, check_z)
-
-                # Check if the cell containing the base of the new block matches a cell
-                # known to contain the top surface of an existing block.
-                grid_check_passed = support_coord_needed in self.occupied_cells
-                # print(f"DEBUG: Support Check for Block at {position} (BaseY={base_y:.3f}): Needs support in cell {support_coord_needed}. Found={grid_check_passed}") # DEBUG PRINT
-
-                if not grid_check_passed:
-                    # If the grid check fails, it means the cell where the base should be is not marked as occupied (by a top surface below).
-                    # Check if the required support cell is below ground (Y=-1). If so, it's an invalid placement.
-                    if base_y < -support_tolerance:
-                         print(f"Warning: Block at {position} is attempting to place below ground level (base in cell {support_coord_needed}). Skipping.")
-                    else:
-                         # Only print floating warning if not below ground
-                         print(f"Warning: Block at {position} is floating (Grid Check Failed: required support cell {support_coord_needed} not occupied). Skipping.")
-                    return None
-                # else:
-                    # print(f"DEBUG: Grid check passed for block at {position}.") # DEBUG PRINT
-                # --- End Grid-Based Support Check ---
-
-                # --- Volumetric Support Check (Attempt if Mode is Hybrid and Grid Check Passed) ---
-                # This check only runs if the grid check passed, providing a finer check using raycasting
-                if self.support_check_mode == "HYBRID": # No need to check grid_check_passed again, we wouldn't be here if it failed
-                    if self.collision_manager is None:
-                        # Collision system disabled: silently skip volumetric support checks.
-                        volumetric_check_passed = True
-                    else:
-                        volumetric_check_passed = False # Assume failure unless proven otherwise
-                    try:
-                        # Create a ray intersector using the collision manager's current state
-                        # Note: This might be inefficient if called very frequently. Consider caching.
-                        if self.collision_manager is None:
-                             volumetric_check_passed = True
-                        elif not self.collision_manager._objs:
-                             # No objects in collision manager yet, volumetric check trivially fails (no support)
-                             print(f"Debug: Volumetric check skipped for block at {position} - collision manager empty.")
-                             # If grid check passed but CM is empty, something is wrong, treat as failure.
-                             volumetric_check_passed = False
-                        elif not _pyembree_available:
-                             print(f"Warning: Volumetric support check skipped (pyembree not available). Relying on grid check result for block at {position}.")
-                             volumetric_check_passed = True # Rely on grid check result (which was True)
-                        else:
-                            # Import RayMeshIntersector specifically from the pyembree backend path
-                            from trimesh.ray.ray_pyembree import RayMeshIntersector
-                            intersector = RayMeshIntersector(self.collision_manager)
-
-                            # Define ray origin slightly above the center of the bottom face
-                            bottom_center_x = new_mesh.bounds.mean(axis=0)[0]
-                            bottom_center_z = new_mesh.bounds.mean(axis=0)[2]
-                            # Start ray slightly above the bottom face to avoid self-intersection issues
-                            ray_origins = np.array([[bottom_center_x, min_y + support_tolerance, bottom_center_z]])
-                            ray_directions = np.array([[0, -1, 0]]) # Cast downwards
-
-                            # Perform the ray intersection
-                            locations, index_ray, index_tri = intersector.intersects_location(
-                                ray_origins=ray_origins,
-                                ray_directions=ray_directions
-                            )
-
-                            if len(locations) == 0:
-                                # Volumetric check confirms no support below
-                                print(f"Warning: Block at {position} is floating (Volumetric Check: no support found below). Skipping.")
-                                volumetric_check_passed = False
-                            else:
-                                # Hits found, check if the closest hit is near enough
-                                # Calculate distances from ray origin to hit locations
-                                distances = np.linalg.norm(locations - ray_origins[index_ray], axis=1)
-                                min_distance = np.min(distances) # Find the closest hit distance
-
-                                # If the closest hit is further than tolerance * 2 (relative to ray origin just above base), it's floating
-                                if min_distance > support_tolerance * 2:
-                                     print(f"Warning: Block at {position} is floating (Volumetric Check: support too far below: {min_distance:.4f} > {support_tolerance * 2:.4f}). Skipping.")
-                                     volumetric_check_passed = False
-                                else:
-                                     # Volumetric check confirms support is close enough.
-                                     # print(f"DEBUG: Volumetric check passed for block at {position} (Hit distance: {min_distance:.4f})") # DEBUG PRINT
-                                     volumetric_check_passed = True
-
-                    except ImportError as ie:
-                         # Handle case where pyembree/other backend might be missing for the intersector
-                         # The specific error might be "No module named 'pyembree'" or "No module named 'embreex'"
-                         print(f"Warning: Volumetric support check failed due to missing backend ({ie}). Is 'pyembree' installed? Relying on grid check result for block at {position}.")
-                         volumetric_check_passed = True # Rely on grid check result (which was True)
-                    except Exception as e:
-                         # Catch other potential errors during volumetric check
-                         print(f"Warning: Error during volumetric support check for block at {position}: {e}. Relying on grid check result.")
-                         volumetric_check_passed = True # Rely on grid check result (which was True)
-
-                    # If volumetric check was performed and failed, return None
-                    if not volumetric_check_passed:
-                        return None
-                    # --- End Volumetric Support Check ---
-
-                # Else (mode is "GRID"): Proceed based on grid check only (which already passed).
-                # Else (mode is "HYBRID" and volumetric check passed): Proceed.
-
-            # Else (is_on_ground is True): Block is supported by the ground. Proceed.
+            base_y = float(new_mesh.bounds[0, 1])
+            if not self._surface_supports(new_mesh, base_y):
+                if base_y < -SUPPORT_TOLERANCE:
+                    print(f"Warning: Block at {position} is attempting to place below ground level. Skipping.")
+                else:
+                    print(f"Warning: Block at {position} is floating (no supporting surface within tolerance). Skipping.")
+                return None
         # --- END SUPPORT CHECK ---
 
         # --- 3. All Checks Passed - Create Block Object and Add to Scene ---
-        # Calculate occupied coordinate based on the TOP surface cell using actual block_height
-        top_y = position[1] + block_height / 2.0 # Use actual block_height
-        # Store the integer cell containing the top surface (using floor for X/Z consistency)
-        occupied_coord = (int(np.floor(position[0])), int(top_y - 1e-9), int(np.floor(position[2])))
-
         block_args = {
             "position": position,
             "block_type": block_type,
@@ -374,13 +322,53 @@ class Scene:
                  # Do not increment block ID in this error case
                  return None
 
-        # --- 5. Update Occupied Grid and Finalize ---
-        # Add the pre-calculated occupied coordinate (top-surface-based) to the set *after* all checks passed
-        self.occupied_cells.add(occupied_coord)
-        # print(f"Debug: Added block {block.block_id} occupying top-surface cell {occupied_coord}") # Optional debug
-
+        # --- 5. Update support records and finalize ---
+        self._remember_support(block)
         self._next_block_id += 1 # Increment ID only on successful addition
         return block # Return the created block
+
+    def _surface_supports(self, mesh: trimesh.Trimesh, base_y: float) -> bool:
+        """True when ``mesh`` rests on the ground or on a recorded top face."""
+        if abs(base_y) <= SUPPORT_TOLERANCE:
+            return True
+        if base_y < -SUPPORT_TOLERANCE:
+            return False
+        bounds = np.asarray(mesh.bounds, dtype=float)
+        x0, x1 = float(bounds[0, 0]), float(bounds[1, 0])
+        z0, z1 = float(bounds[0, 2]), float(bounds[1, 2])
+        for _block_id, sx0, sx1, sz0, sz1, top_y in self._support_surfaces:
+            gap = base_y - top_y
+            if gap < -SUPPORT_TOLERANCE or gap > SUPPORT_TOLERANCE:
+                continue
+            overlap_x = min(x1, sx1) - max(x0, sx0)
+            overlap_z = min(z1, sz1) - max(z0, sz0)
+            if overlap_x > SUPPORT_OVERLAP and overlap_z > SUPPORT_OVERLAP:
+                return True
+        return False
+
+    def _remember_support(self, block: Block):
+        """Record the top face used by later support checks."""
+        if block.mesh is None:
+            return
+        bounds = np.asarray(block.mesh.bounds, dtype=float)
+        self._support_surfaces.append(
+            (
+                int(block.block_id),
+                float(bounds[0, 0]),
+                float(bounds[1, 0]),
+                float(bounds[0, 2]),
+                float(bounds[1, 2]),
+                float(bounds[1, 1]),
+            )
+        )
+        center = bounds.mean(axis=0)
+        self.occupied_cells.add(
+            (
+                int(np.floor(center[0])),
+                int(np.floor(float(bounds[1, 1]) - 1e-9)),
+                int(np.floor(center[2])),
+            )
+        )
 
     def get_block_by_id(self, block_id: int) -> Optional[Block]:
         """Retrieves a block by its unique ID."""
@@ -415,8 +403,10 @@ class Scene:
             print(f"Error in collision check: {e}")
             return False
 
-    def clear(self, use_collision: Optional[bool] = None):
+    def clear(self, use_collision: Optional[bool] = None, reset_checks: bool = True):
         """Removes all blocks from the scene and resets the collision manager."""
+        previous_overlap = self.enable_strict_overlap_prevention
+        previous_support = self.support_check_mode
         self.blocks = []
         self._next_block_id = 0
         # Reset the collision manager; keep previous state if not specified
@@ -424,11 +414,14 @@ class Scene:
             use_collision = self.collision_manager is not None
         self.collision_manager = _create_collision_manager(use_collision)
         collision_enabled = self.collision_manager is not None
-        # Reset flags to default
-        self.enable_strict_overlap_prevention = collision_enabled
-        self.support_check_mode = "HYBRID" if collision_enabled else "OFF" # Reset to default mode
-        # Clear occupied grid cells
+        if reset_checks:
+            self.enable_strict_overlap_prevention = collision_enabled
+            self.support_check_mode = "HYBRID" if collision_enabled else "OFF"
+        else:
+            self.enable_strict_overlap_prevention = previous_overlap if collision_enabled else False
+            self.support_check_mode = previous_support
         self.occupied_cells = set()
+        self._support_surfaces = []
         print("Scene cleared.")
 
     def to_dict(self) -> Dict[str, Any]:
@@ -441,7 +434,7 @@ class Scene:
 
     def from_dict(self, data: Dict[str, Any]):
         """Reconstructs the scene state from a dictionary."""
-        self.clear() # Start with an empty scene (clears blocks and collision manager)
+        self.clear(reset_checks=False) # Start with an empty scene (clears blocks and collision manager)
         block_data_list = data.get("blocks", [])
         # self.blocks = [] # Already cleared by self.clear()
         max_id = -1
@@ -464,7 +457,8 @@ class Scene:
             else:
                  block_type = block_type_loaded
 
-            parameters = block_data.get("parameters", {}) # Load parameters, default to empty dict
+            raw_parameters = block_data.get("parameters", {})
+            parameters = dict(raw_parameters) if isinstance(raw_parameters, dict) else {}
             # Load dimensions, default to [1,1,1]
             dimensions = np.array(block_data.get("dimensions", [1.0, 1.0, 1.0]))
 
@@ -489,15 +483,7 @@ class Scene:
                  print(f"Error creating loaded block object for ID {block_id}: {e}. Skipping this block.")
                  continue # Skip to the next block in the file
 
-            # --- Populate Occupied Cells for Loaded Block (Top-Surface-based, Floor X/Z) ---
-            loaded_height = block.dimensions[1]
-            if block.block_type == CYLINDER:
-                loaded_height = block.parameters.get('height', block.dimensions[1])
-            top_y_load = block.position[1] + loaded_height / 2.0
-            # Use floor for X/Z grid index calculation
-            occupied_coord_load = (int(np.floor(block.position[0])), int(top_y_load - 1e-9), int(np.floor(block.position[2])))
-            self.occupied_cells.add(occupied_coord_load)
-            # --- End Populate Occupied Cells ---
+            self._remember_support(block)
 
         # Restore the next block ID counter
         self._next_block_id = data.get("next_block_id", max_id + 1)

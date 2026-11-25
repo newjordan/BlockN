@@ -182,6 +182,36 @@ class TestPrimitiveCreation(unittest.TestCase):
         # Expected faces = sections * 2 (sides) + sections * 2 (caps) = 4 * sections
         self.assertEqual(len(mesh.faces), 4 * custom_sections)
 
+    def test_wedges_are_solid_in_every_orientation(self):
+        dims = np.array([2.0, 1.0, 3.0])
+        expected = 0.5 * dims[0] * dims[1] * dims[2]
+        for orientation in ("+X", "-X", "+Z", "-Z"):
+            mesh = create_wedge_mesh(position=np.zeros(3), dimensions=dims, orientation=orientation)
+            self.assertTrue(mesh.is_watertight, orientation)
+            self.assertTrue(mesh.is_winding_consistent, orientation)
+            self.assertTrue(mesh.is_volume, orientation)
+            self.assertTrue(np.isclose(mesh.volume, expected), f"{orientation} volume {mesh.volume}")
+
+    def test_optimize_unions_wedges(self):
+        first = Block(
+            position=np.array([0.0, 0.5, 0.0]),
+            block_type="WEDGE",
+            color=RED,
+            dimensions=np.array([1.0, 1.0, 1.0]),
+            parameters={"orientation": "+X"},
+        )
+        second = Block(
+            position=np.array([3.0, 0.5, 0.0]),
+            block_type="WEDGE",
+            color=RED,
+            dimensions=np.array([1.0, 1.0, 1.0]),
+            parameters={"orientation": "-X"},
+        )
+        result = optimize_blocks([first, second])
+        self.assertEqual(len(result), 1)
+        self.assertTrue(np.isclose(result[0].volume, 1.0, rtol=0.05))
+        self.assertEqual(tuple(result[0].visual.face_colors[0]), RED)
+
 
 if __name__ == '__main__':
     unittest.main()

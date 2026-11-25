@@ -263,7 +263,7 @@ def _resolve_column_count(
         minimum=minimum,
         maximum=maximum,
     )
-    if override is None:
+    if override is None or int(override) <= 0:
         return auto_count
 
     requested = int(override)
@@ -1662,6 +1662,10 @@ def generate_classical_building(
     - maintain at least two independent egress paths where symmetry allows
     - size stair risers/treads proportionally so podiums remain traversable by people
     """
+    # clear() resets overlap and support. Capture the caller's settings first
+    # so a finished temple does not leave the scene in the cleared defaults.
+    original_support_mode = scene.support_check_mode
+    original_overlap = scene.enable_strict_overlap_prevention
     if clear_scene:
         scene.clear()
 
@@ -1671,8 +1675,16 @@ def generate_classical_building(
     order = ORDER_SPECS[order_name]
     preset = _resolve_preset(preset_override)
 
-    footprint_width = max(6, int(width))
-    footprint_depth = max(6, int(depth))
+    requested_width = int(width)
+    requested_depth = int(depth)
+    footprint_width = max(6, requested_width)
+    footprint_depth = max(6, requested_depth)
+    if footprint_width != requested_width or footprint_depth != requested_depth:
+        print(
+            "Warning: classical footprint minimum is 6 on each side; "
+            f"requested {requested_width}x{requested_depth}, "
+            f"using {footprint_width}x{footprint_depth}."
+        )
 
     style_scale = _clamp(min(footprint_width, footprint_depth) / 10.0, 0.65, 1.15)
     diameter = order.base_diameter * style_scale * preset.diameter_scale
@@ -1757,10 +1769,6 @@ def generate_classical_building(
         f" footprint={footprint_width}x{footprint_depth}"
     )
 
-    original_support_mode = scene.support_check_mode
-    if gen_flags.get("disable_support_for_classical", True):
-        scene.support_check_mode = "OFF"
-
     pediment_span_x = 0.0
     pediment_peak_h = 0.0
     snapshot_metrics: Dict[str, Any] = {}
@@ -1805,6 +1813,13 @@ def generate_classical_building(
     }
 
     try:
+        if gen_flags.get("disable_support_for_classical", True):
+            scene.support_check_mode = "OFF"
+        # Columns, cornices, pediment wedges, and stairs intentionally touch or
+        # intersect. Leaving strict overlap on drops those members: a Doric
+        # 10 by 8 build kept 222 of 280 blocks when the collision backend was active.
+        scene.enable_strict_overlap_prevention = False
+
         if gen_flags["podium"] and podium_height > 0:
             generate_podium(
                 scene,
@@ -2043,6 +2058,8 @@ def generate_classical_building(
         snapshot_metrics = {
             "order": order.name,
             "preset": preset.name,
+            "footprint_width": int(footprint_width),
+            "footprint_depth": int(footprint_depth),
             "front_columns": int(front_columns),
             "side_columns": int(side_columns),
             "facade_span": round(float(max(0.0, x_max - x_min)), 6),
@@ -2084,6 +2101,7 @@ def generate_classical_building(
 
     finally:
         scene.support_check_mode = original_support_mode
+        scene.enable_strict_overlap_prevention = original_overlap
 
     scene.last_classical_metrics = snapshot_metrics
     return snapshot_metrics

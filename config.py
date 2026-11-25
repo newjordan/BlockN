@@ -1,8 +1,10 @@
 """
-LegoGen Configuration Module
+BlockN configuration.
 
-Centralized configuration management for the LegoGen application.
-Loads settings from environment variables with sensible defaults.
+Loads settings from environment variables and an optional ``.env`` file.
+The classical generator and workbench read the dimension defaults. The OpenAI
+and Blender values are accepted so existing environment files keep loading;
+this branch does not call either service.
 
 Usage:
     from config import config
@@ -25,9 +27,36 @@ except ImportError:
     pass
 
 
+def _read_int(name: str, default: int) -> int:
+    """Return a positive integer setting, or ``default`` when the value is unusable."""
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        return default
+    if value <= 0:
+        return default
+    return value
+
+
+def _int_issue(name: str, default: int) -> Optional[str]:
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        return f"{name} must be an integer, got {raw!r}. Using {default}."
+    if value <= 0:
+        return f"{name} must be positive, got {value}. Using {default}."
+    return None
+
+
 class Config:
     """
-    Configuration class for LegoGen application.
+    Configuration for the BlockN classical workbench.
 
     Attributes are loaded from environment variables with fallback defaults.
     """
@@ -62,17 +91,17 @@ class Config:
     @property
     def DEFAULT_WIDTH(self) -> int:
         """Default scene width in blocks"""
-        return int(os.getenv('DEFAULT_WIDTH', '10'))
+        return _read_int('DEFAULT_WIDTH', 5)
 
     @property
     def DEFAULT_HEIGHT(self) -> int:
         """Default scene height in blocks"""
-        return int(os.getenv('DEFAULT_HEIGHT', '10'))
+        return _read_int('DEFAULT_HEIGHT', 5)
 
     @property
     def DEFAULT_DEPTH(self) -> int:
         """Default scene depth in blocks"""
-        return int(os.getenv('DEFAULT_DEPTH', '10'))
+        return _read_int('DEFAULT_DEPTH', 5)
 
     @property
     def DEFAULT_SUPPORT_MODE(self) -> str:
@@ -98,20 +127,18 @@ class Config:
 
     @property
     def EXPORT_DIR(self) -> Path:
-        """Default directory for GLB exports"""
+        """Default directory for GLB exports. The directory is not created until export."""
         export_dir = Path(os.getenv('EXPORT_DIR', 'exports'))
         if not export_dir.is_absolute():
             export_dir = self.PROJECT_ROOT / export_dir
-        export_dir.mkdir(parents=True, exist_ok=True)
         return export_dir
 
     @property
     def SAVE_DIR(self) -> Path:
-        """Default directory for JSON scene saves"""
+        """Default directory for JSON scene saves. The directory is not created until a save."""
         save_dir = Path(os.getenv('SAVE_DIR', 'saves'))
         if not save_dir.is_absolute():
             save_dir = self.PROJECT_ROOT / save_dir
-        save_dir.mkdir(parents=True, exist_ok=True)
         return save_dir
 
     # =============================================================================
@@ -126,7 +153,7 @@ class Config:
     @property
     def MAX_BLOCKS_WARNING(self) -> int:
         """Warn user if block count exceeds this threshold"""
-        return int(os.getenv('MAX_BLOCKS_WARNING', '5000'))
+        return _read_int('MAX_BLOCKS_WARNING', 5000)
 
     # =============================================================================
     # Debug/Development
@@ -175,9 +202,15 @@ class Config:
             if len(self.OPENAI_API_KEY) < 20:
                 issues.append("OpenAI API key looks too short (possible misconfiguration)")
 
-        # Validate dimensions
-        if self.DEFAULT_WIDTH <= 0 or self.DEFAULT_HEIGHT <= 0 or self.DEFAULT_DEPTH <= 0:
-            issues.append("Default dimensions must be positive integers")
+        for name, default in (
+            ("DEFAULT_WIDTH", 5),
+            ("DEFAULT_HEIGHT", 5),
+            ("DEFAULT_DEPTH", 5),
+            ("MAX_BLOCKS_WARNING", 5000),
+        ):
+            issue = _int_issue(name, default)
+            if issue:
+                issues.append(issue)
 
         return issues
 
@@ -189,7 +222,7 @@ class Config:
             Formatted configuration summary string
         """
         lines = [
-            "LegoGen Configuration:",
+            "BlockN configuration:",
             f"  Project Root: {self.PROJECT_ROOT}",
             f"  Export Dir: {self.EXPORT_DIR}",
             f"  Save Dir: {self.SAVE_DIR}",

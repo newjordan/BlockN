@@ -486,6 +486,68 @@ class TestClassicalGenerator(unittest.TestCase):
         }
         self.assertEqual(typo_orders, {"Ionic"})
 
+    def test_collision_backend_does_not_drop_members_or_settings(self):
+        plain = Scene(use_collision=False)
+        checked = Scene(use_collision=True)
+        checked.support_check_mode = "GRID"
+        checked.enable_strict_overlap_prevention = False
+
+        plain_metrics = generate_classical_building(
+            plain,
+            width=10,
+            depth=8,
+            podium_height_actual=2,
+            seed=1,
+            order_override="Doric",
+            preset_override="canonical",
+            clear_scene=True,
+        )
+        checked_metrics = generate_classical_building(
+            checked,
+            width=10,
+            depth=8,
+            podium_height_actual=2,
+            seed=1,
+            order_override="Doric",
+            preset_override="canonical",
+            clear_scene=True,
+        )
+
+        self.assertEqual(len(plain.blocks), len(checked.blocks))
+        self.assertEqual(plain_metrics["block_count"], checked_metrics["block_count"])
+        self.assertGreater(len(checked.blocks), 0)
+        self.assertEqual(checked.support_check_mode, "GRID")
+        self.assertFalse(checked.enable_strict_overlap_prevention)
+
+    def test_small_footprint_is_raised_to_minimum(self):
+        import io
+        from contextlib import redirect_stdout
+
+        scene = Scene(use_collision=False)
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            metrics = generate_classical_building(
+                scene,
+                width=5,
+                depth=4,
+                podium_height_actual=2,
+                seed=3,
+                order_override="Doric",
+                clear_scene=True,
+            )
+        self.assertEqual(metrics["footprint_width"], 6)
+        self.assertEqual(metrics["footprint_depth"], 6)
+        self.assertIn("minimum is 6", buffer.getvalue())
+
+    def test_non_positive_column_override_uses_the_fitted_count(self):
+        automatic = self._generate("Doric", seed=11)
+        zero = self._generate("Doric", seed=11, front_column_override=0, side_column_override=0)
+        auto_metrics = get_classical_snapshot_metrics(automatic)
+        zero_metrics = get_classical_snapshot_metrics(zero)
+        self.assertEqual(auto_metrics["front_columns"], zero_metrics["front_columns"])
+        self.assertEqual(auto_metrics["side_columns"], zero_metrics["side_columns"])
+        self.assertEqual(self._scene_signature(automatic), self._scene_signature(zero))
+
 
 if __name__ == '__main__':
     unittest.main()

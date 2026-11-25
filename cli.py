@@ -1,4 +1,4 @@
-"""Minimal CLI for generating and exporting LegoGen scenes.
+"""Command line for the BlockN classical generator.
 
 Usage examples:
   python3 cli.py generate --seed 123 --out builds/classical.glb
@@ -11,6 +11,7 @@ from typing import List
 
 import numpy as np
 
+from config import config
 from core.scene import Scene
 from core.generators.classical import generate_classical_building, get_classical_snapshot_metrics
 from core.geometry import optimize_blocks
@@ -92,6 +93,7 @@ def _export(scene: Scene, output: Path | None, json_path: Path | None, optimize:
                 "Classical metrics:"
                 f" order={metrics.get('order')}"
                 f" preset={metrics.get('preset')}"
+                f" footprint={metrics.get('footprint_width')}x{metrics.get('footprint_depth')}"
                 f" facade_span={metrics.get('facade_span')}"
                 f" front_columns={metrics.get('front_columns')}"
                 f" side_columns={metrics.get('side_columns')}"
@@ -101,13 +103,13 @@ def _export(scene: Scene, output: Path | None, json_path: Path | None, optimize:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="LegoGen CLI (KISS baseline)")
+    parser = argparse.ArgumentParser(description="BlockN classical generator")
     sub = parser.add_subparsers(dest="command", required=True)
 
     gen = sub.add_parser("generate", help="Generate a classical scene and export to GLB/JSON")
-    gen.add_argument("--width", type=int, default=5, help="X dimension")
-    gen.add_argument("--height", type=int, default=5, help="Y dimension")
-    gen.add_argument("--depth", type=int, default=5, help="Z dimension")
+    gen.add_argument("--width", type=int, default=config.DEFAULT_WIDTH, help="X dimension in block units")
+    gen.add_argument("--height", type=int, default=config.DEFAULT_HEIGHT, help="Y dimension; podium height is one third of this")
+    gen.add_argument("--depth", type=int, default=config.DEFAULT_DEPTH, help="Z dimension in block units")
     gen.add_argument(
         "--classical-order",
         choices=["Random", "Doric", "Ionic"],
@@ -120,8 +122,8 @@ def main():
         default="canonical",
         help="Classical proportion preset",
     )
-    gen.add_argument("--classical-front-columns", type=int, default=None, help="Override front colonnade count (even)")
-    gen.add_argument("--classical-side-columns", type=int, default=None, help="Override side colonnade count (even)")
+    gen.add_argument("--classical-front-columns", type=int, default=None, help="Even front colonnade count. 0 or omitted uses the fitted count.")
+    gen.add_argument("--classical-side-columns", type=int, default=None, help="Even side colonnade count. 0 or omitted uses the fitted count.")
     gen.add_argument(
         "--classical-pediment-slope",
         type=float,
@@ -172,6 +174,8 @@ def main():
     args = parser.parse_args()
 
     if args.command == "generate":
+        if args.width < 1 or args.height < 1 or args.depth < 1:
+            parser.error("width, height, and depth must be positive integers")
         scene = _build_scene(
             args.width,
             args.height,

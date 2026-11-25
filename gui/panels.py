@@ -18,13 +18,12 @@ from PyQt5.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
-    QSizePolicy,
-    QSpacerItem,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
+from config import config
 from core.materials import DEFAULT_COLORS, ColorTuple
 from core.scene import Block
 
@@ -49,8 +48,7 @@ class GenerationPanel(QWidget):
         object,
         object,
     )
-    support_toggled = pyqtSignal(bool)
-    overlap_toggled = pyqtSignal(bool)
+    notice = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -72,15 +70,18 @@ class GenerationPanel(QWidget):
         dim_layout = QHBoxLayout()
         self.width_spinbox = QSpinBox()
         self.width_spinbox.setRange(1, 200)
-        self.width_spinbox.setValue(5)
+        self.width_spinbox.setValue(config.DEFAULT_WIDTH)
+        self.width_spinbox.setToolTip("Temple width in block units. Values below 6 are built as 6.")
 
         self.height_spinbox = QSpinBox()
         self.height_spinbox.setRange(1, 200)
-        self.height_spinbox.setValue(5)
+        self.height_spinbox.setValue(config.DEFAULT_HEIGHT)
+        self.height_spinbox.setToolTip("Podium height is one third of this value, and at least 1.")
 
         self.depth_spinbox = QSpinBox()
         self.depth_spinbox.setRange(1, 200)
-        self.depth_spinbox.setValue(5)
+        self.depth_spinbox.setValue(config.DEFAULT_DEPTH)
+        self.depth_spinbox.setToolTip("Temple depth in block units. Values below 6 are built as 6.")
 
         dim_layout.addWidget(QLabel("Width:"))
         dim_layout.addWidget(self.width_spinbox)
@@ -199,33 +200,37 @@ class GenerationPanel(QWidget):
 
         gen_layout.addWidget(self.classical_tuning_group)
 
-        checks_layout = QVBoxLayout()
-        self.support_check_cb = QCheckBox("Enable Support Check")
-        self.support_check_cb.setChecked(True)
-        self.support_check_cb.toggled.connect(self.support_toggled.emit)
-        checks_layout.addWidget(self.support_check_cb)
+        hint = QLabel(
+            "Builds a Doric or Ionic temple. Width and depth below 6 are raised to 6. "
+            "Podium height is the integer third of Height."
+        )
+        hint.setObjectName("PanelHint")
+        hint.setWordWrap(True)
+        gen_layout.addWidget(hint)
 
-        self.overlap_check_cb = QCheckBox("Strict Overlap Check")
-        self.overlap_check_cb.setChecked(True)
-        self.overlap_check_cb.toggled.connect(self.overlap_toggled.emit)
-        checks_layout.addWidget(self.overlap_check_cb)
-        gen_layout.addLayout(checks_layout)
-
-        self.generate_button = QPushButton("Generate")
+        self.generate_button = QPushButton("Generate Temple")
         self.generate_button.setObjectName("PrimaryActionButton")
         self.generate_button.clicked.connect(self._on_generate_clicked)
         gen_layout.addWidget(self.generate_button)
 
         main_layout.addWidget(gen_group)
-        main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
+
+    def _parse_seed(self) -> Optional[int]:
+        seed_text = self.seed_input.text().strip()
+        if not seed_text:
+            seed_value = random.randint(0, 2**31 - 1)
+            self.seed_input.setText(str(seed_value))
+            return seed_value
+        try:
+            return int(seed_text)
+        except ValueError:
+            self.notice.emit("Seed must be an integer.")
+            return None
 
     def _on_generate_clicked(self):
-        seed_value: Optional[int]
-        seed_text = self.seed_input.text().strip()
-        if seed_text:
-            seed_value = int(seed_text)
-        else:
-            seed_value = random.randint(0, 2**31 - 1)
+        seed_value = self._parse_seed()
+        if seed_value is None:
+            return
 
         classical_order = self.classical_order_combo.currentText()
         classical_preset = self.classical_preset_combo.currentText()
@@ -292,21 +297,6 @@ class GenerationPanel(QWidget):
         spinbox.setValue(adjusted)
         spinbox.blockSignals(old_state)
 
-    def apply_collision_defaults(self, collision_enabled: bool):
-        """Sync UI defaults when collision backend is unavailable."""
-        if collision_enabled:
-            self.overlap_check_cb.setEnabled(True)
-            return
-
-        support_signal_state = self.support_check_cb.blockSignals(True)
-        overlap_signal_state = self.overlap_check_cb.blockSignals(True)
-        self.support_check_cb.setChecked(False)
-        self.overlap_check_cb.setChecked(False)
-        self.support_check_cb.blockSignals(support_signal_state)
-        self.overlap_check_cb.blockSignals(overlap_signal_state)
-        self.overlap_check_cb.setEnabled(False)
-
-
 class SceneExportPanel(QWidget):
     """Minimal scene actions: optimize and exports."""
 
@@ -343,7 +333,6 @@ class SceneExportPanel(QWidget):
         layout.addWidget(self.export_snapshot_button)
 
         main_layout.addWidget(group)
-        main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
 
 class ColorPalettePanel(QWidget):
@@ -362,54 +351,81 @@ class ColorPalettePanel(QWidget):
         palette_group.setObjectName("ColorPaletteGroup")
         palette_layout = QGridLayout(palette_group)
 
+        self._swatches = []
         cols = 3
         for index, color_tuple in enumerate(colors):
             button = QPushButton()
             button.setObjectName("SwatchButton")
             button.setFixedSize(32, 32)
             button.setToolTip(f"RGBA {color_tuple}")
-            button.setStyleSheet(
-                "QPushButton {"
-                f"background-color: rgba({color_tuple[0]}, {color_tuple[1]}, {color_tuple[2]}, {color_tuple[3]});"
-                "border: 2px solid rgba(255, 244, 220, 0.7);"
-                "border-radius: 10px;"
-                "}"
-                "QPushButton:hover { border-color: rgba(23, 31, 48, 0.95); }"
-            )
-            button.clicked.connect(functools.partial(self._on_color_button_clicked, color_tuple))
+            button.setProperty("swatch", color_tuple)
+            self._apply_swatch_style(button, color_tuple, selected=False)
+            button.clicked.connect(functools.partial(self._on_color_button_clicked, button, color_tuple))
             palette_layout.addWidget(button, index // cols, index % cols)
+            self._swatches.append(button)
 
         main_layout.addWidget(palette_group)
-        main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
-    def _on_color_button_clicked(self, color: ColorTuple):
+    def _apply_swatch_style(self, button: QPushButton, color: ColorTuple, selected: bool):
+        border = "3px solid #ffd36a" if selected else "2px solid rgba(255, 244, 220, 0.7)"
+        button.setStyleSheet(
+            "QPushButton {"
+            f"background-color: rgba({color[0]}, {color[1]}, {color[2]}, {color[3]});"
+            f"border: {border};"
+            "border-radius: 10px;"
+            "}"
+            "QPushButton:hover { border-color: #fff6e3; }"
+        )
+
+    def _on_color_button_clicked(self, button: QPushButton, color: ColorTuple):
+        for swatch in self._swatches:
+            swatch_color = swatch.property("swatch")
+            self._apply_swatch_style(swatch, swatch_color, selected=swatch is button)
         self.color_selected.emit(color)
 
 
 class OutlinerPanel(QWidget):
-    """Minimal scene outliner."""
+    """Scene member list. Selecting a row highlights that block in the viewport."""
+
+    block_selected = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("OutlinerPanel")
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        self.summary_label = QLabel("No blocks")
+        self.summary_label.setObjectName("PanelSubtitle")
+        layout.addWidget(self.summary_label)
         self.list_widget = QListWidget()
+        self.list_widget.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self.list_widget)
 
     def update_list(self, blocks: List[Block]):
         self.list_widget.clear()
         if not blocks:
+            self.summary_label.setText("No blocks")
             self.list_widget.addItem("Scene is empty")
             self.list_widget.setEnabled(False)
             return
 
+        count = len(blocks)
+        noun = "block" if count == 1 else "blocks"
+        self.summary_label.setText(f"{count} {noun}")
         self.list_widget.setEnabled(True)
         for block in blocks:
+            element = block.parameters.get("element") if block.parameters else None
+            kind = str(element or block.block_type)
             item_text = (
-                f"Block {block.block_id} "
-                f"[{block.position[0]:.2f}, {block.position[1]:.2f}, {block.position[2]:.2f}]"
+                f"{block.block_id:>4}  {kind:<16} "
+                f"({block.position[0]:.2f}, {block.position[1]:.2f}, {block.position[2]:.2f})"
             )
             item = QListWidgetItem(item_text)
             item.setData(Qt.UserRole, block.block_id)
             self.list_widget.addItem(item)
+
+    def _on_item_clicked(self, item: QListWidgetItem):
+        block_id = item.data(Qt.UserRole)
+        if block_id is None:
+            return
+        self.block_selected.emit(int(block_id))

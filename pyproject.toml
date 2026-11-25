@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blockn"
+version = "0.5.0"
+description = "Classical block architecture generator and desktop workbench."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Jordan Newman" }]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "trimesh>=4.0",
+    "manifold3d>=2.5",
+    "python-dotenv>=1.0",
+    "python-fcl>=0.7.0",
+]
+
+[project.optional-dependencies]
+gui = [
+    "PyQt5>=5.15.10",
+    "pyvista>=0.44",
+    "pyvistaqt>=0.11",
+    "vtk>=9.3",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-qt>=4.4",
+]
+
+[project.scripts]
+blockn = "cli:main"
+
+[tool.setuptools]
+py-modules = ["cli", "config", "main"]
+packages = ["core", "core.generators", "gui"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

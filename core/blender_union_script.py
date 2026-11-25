@@ -7,16 +7,35 @@ import addon_utils # Import addon_utils to manage addons
 from typing import List # Add this import
 
 # Update the function signature below
-def union_meshes(input_files: List[str], output_file: str): # Changed list[str] to List[str]
-    """Imports meshes, unions them, and exports the result."""
+def _apply_boolean_union(target, other) -> bool:
+    """Union ``other`` into ``target`` and delete ``other``."""
+    bpy.ops.object.select_all(action="DESELECT")
+    target.select_set(True)
+    bpy.context.view_layer.objects.active = target
+    modifier = target.modifiers.new(name="Union", type="BOOLEAN")
+    modifier.operation = "UNION"
+    modifier.object = other
+    if hasattr(modifier, "solver"):
+        modifier.solver = "EXACT"
+    try:
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+    except Exception:
+        try:
+            with bpy.context.temp_override(object=target, active_object=target):
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+        except Exception as exc:
+            print(f"  Error applying boolean union of {other.name} into {target.name}: {exc}")
+            return False
+    bpy.data.objects.remove(other, do_unlink=True)
+    return True
+
+
+def union_meshes(input_files: List[str], output_file: str):
+    """Import meshes, boolean-union them, and export the solid."""
     print(f"Union Script: Processing {len(input_files)} inputs for output {output_file}")
 
-    # Clear existing scene objects (mesh, camera, light)
-    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-
-    # --- REMOVED Addon Check ---
-    # --- REMOVED depsgraph update ---
 
     imported_objs = []
     for input_file in input_files:
@@ -25,48 +44,39 @@ def union_meshes(input_files: List[str], output_file: str): # Changed list[str] 
             continue
         try:
             bpy.ops.import_scene.glb(filepath=input_file)
-            # Keep track of newly imported objects
-            current_selection = [o for o in bpy.context.selected_objects if o.type == 'MESH']
+            current_selection = [obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
             imported_objs.extend(current_selection)
             print(f"  Imported {len(current_selection)} mesh(es) from {input_file}")
-            # Deselect after import to prepare for next
-            bpy.ops.object.select_all(action='DESELECT')
-        except Exception as e:
-            print(f"  Error importing file {input_file}: {e}")
+            bpy.ops.object.select_all(action="DESELECT")
+        except Exception as exc:
+            print(f"  Error importing file {input_file}: {exc}")
 
     if not imported_objs:
         print("  Error: No valid mesh objects were imported. Cannot perform union.")
-        return False # Indicate failure
+        return False
 
+    target = imported_objs[0]
     if len(imported_objs) == 1:
-        print("  Only one mesh imported, exporting directly.")
-        obj_to_export = imported_objs[0]
+        print("  Only one mesh imported, exporting it directly.")
     else:
-        # --- Simplified Logic: Export the first imported object ---
-        print(f"  Multiple meshes imported ({len(imported_objs)}). Exporting the first one ({imported_objs[0].name}) without union.")
-        obj_to_export = imported_objs[0]
-        success_flag = True # No operation performed, so technically successful I/O test
-        # --- End Simplified Logic ---
+        print(f"  Unioning {len(imported_objs)} meshes into {target.name}.")
+        for other in imported_objs[1:]:
+            if not _apply_boolean_union(target, other):
+                return False
 
-    # Export the final result (the first imported object)
     try:
-        # --- Add check if obj_to_export is valid before export ---
-        if not obj_to_export or not hasattr(obj_to_export, 'name') or obj_to_export.name not in bpy.data.objects:
-             print(f"  Error: Object to export ('{obj_to_export.name if obj_to_export else 'None'}') is invalid or not found in scene data.")
-             return False # Indicate failure before export attempt
-        # --- End check ---
-
-        # Ensure only the final object is selected
-        bpy.ops.object.select_all(action='DESELECT')
-        obj_to_export.select_set(True)
-        bpy.context.view_layer.objects.active = obj_to_export
-
-        bpy.ops.export_scene.glb(filepath=output_file, use_selection=True, export_format='GLB')
-        print(f"  Exported first imported mesh to {output_file}")
-        return success_flag # Return the flag indicating if errors occurred during union (now always True)
-    except Exception as e:
-        print(f"  Error exporting first imported mesh to {output_file}: {e}")
-        return False # Indicate failure
+        if target.name not in bpy.data.objects:
+            print(f"  Error: Union result '{target.name}' is not in the scene.")
+            return False
+        bpy.ops.object.select_all(action="DESELECT")
+        target.select_set(True)
+        bpy.context.view_layer.objects.active = target
+        bpy.ops.export_scene.glb(filepath=output_file, use_selection=True, export_format="GLB")
+        print(f"  Exported union to {output_file}")
+        return True
+    except Exception as exc:
+        print(f"  Error exporting union to {output_file}: {exc}")
+        return False
 
 
 def main():
