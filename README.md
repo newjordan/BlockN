@@ -3,6 +3,19 @@
 This repository is the stripped, shareable production branch of BlockN and follows the development of SOTA models with new architecture styles over time. 
 It keeps the stable classical generator, GUI viewer, and export pipeline.
 
+## New architect: Nordic Stave (development build)
+
+<a href="https://newjordan.github.io/BlockN/public/blockn-nordic-stave.mp4"><img src="public/blockn-stave-church.png" alt="BlockN showcase: a Borgund-style Nordic stave church and raised stabbur assembling member by member and weathering in PBR" width="540"></a>
+
+[Watch the 24-second showcase (MP4, 7.8 MB, 1280×720, with sound)](https://newjordan.github.io/BlockN/public/blockn-nordic-stave.mp4)
+
+The showcase follows the Nordic Stave Architect from phosphor CAD member-by-member assembly through an emerald scan wipe into weathered PBR surfaces, including an open-roof cutaway exposing the vertical pine staves, structural rafters, head plates, and St. Andrew's scissor braces:
+
+- **Nordic Stave Architect**: `stave-church` (`borgund`, `single-nave`) and `stave-loft` (`loft-house`, `stabbur`). Vertical tongue-and-groove pine stave planks (`veggtiljer`) and cylindrical staves raised clear of damp ground on a coursed granite foundation sill (`svill`), wrapped by an encircling `svalgang` dwarf-arcade gallery and capped with overlapping cedar shingle courses over structural rafters, mitered hipped lean-to corners, carved oak dragon-head finials (`dragehoder`), pierced ridge crests (`mønekam`), an eastern choir and semicircular apse, and a multi-tiered `takrytter` ridge turret. The `stabbur` raises a cantilevered two-storey storehouse on six mushroom-capped granite `stabbe` piers. Seven measured geometric rules.
+
+![Borgund raised-nave stave church in weathered PBR](public/blockn-stave-church.png)
+![Raised stabbur storehouse on six granite stabbe piers](public/blockn-stave-stabbur.png)
+
 ## Two new architects: Chinese and Dravidian (development build)
 
 <a href="https://newjordan.github.io/BlockN/public/blockn-two-architects.mp4"><img src="public/blockn-two-architects-cover.png" alt="BlockN demo: a Chinese timber hall and a Dravidian gateway tower building themselves member by member" width="270"></a>
