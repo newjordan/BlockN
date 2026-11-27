@@ -1,9 +1,9 @@
-# Block by Block Architect Knowledge According to History (Public Build)
+# Block by Block Architect Knowledge According to History
 
-This repository is the stripped, shareable production branch of BlockN and follows the development of SOTA models with new architecture styles over time. 
-It keeps the stable classical generator, GUI viewer, and export pipeline.
+This repository is the public build of BlockN and follows the development of SOTA models with new architecture styles over time.
+It carries the full generator: every period architect shown below, the settlement planner, block mode for Minecraft, substances and physics, weathering, every export format, the desktop workbench and the `blockn` CLI.
 
-## New architect: Nordic Stave (development build)
+## New architect: Nordic Stave
 
 <a href="https://newjordan.github.io/BlockN/public/blockn-nordic-stave.mp4"><img src="public/blockn-stave-church.png" alt="BlockN showcase: a Borgund-style Nordic stave church and raised stabbur assembling member by member and weathering in PBR" width="540"></a>
 
@@ -16,7 +16,7 @@ The showcase follows the Nordic Stave Architect from phosphor CAD member-by-memb
 ![Borgund raised-nave stave church in weathered PBR](public/blockn-stave-church.png)
 ![Raised stabbur storehouse on six granite stabbe piers](public/blockn-stave-stabbur.png)
 
-## Two new architects: Chinese and Dravidian (development build)
+## Two new architects: Chinese and Dravidian
 
 <a href="https://newjordan.github.io/BlockN/public/blockn-two-architects.mp4"><img src="public/blockn-two-architects-cover.png" alt="BlockN demo: a Chinese timber hall and a Dravidian gateway tower building themselves member by member" width="270"></a>
 
@@ -24,8 +24,7 @@ The showcase follows the Nordic Stave Architect from phosphor CAD member-by-memb
 
 The demo shows each building assembling itself member by member in the
 workbench's own viewport. The member counts and quality results on screen
-come from the builds themselves. Two more architects join the development
-build of Blocks:
+come from the builds themselves. Two more architects join BlockN:
 
 - **Chinese Architect**: `chinese-hall` and `chinese-palace-hall`. A timber hall on a stone terrace, with bays that shorten outward from the widest middle one, bracket sets measured in doukou, roof courses that steepen toward the ridge, eaves that lift at the corners, owl-tails on the ridge and a line of beasts down every hip. The palace hall raises a second eave over nine bays.
 - **Dravidian Architect**: `dravidian-gopuram` and `dravidian-vimana`. A gateway tower of diminishing talas, each under its prastara, kudu arches and a parapet of miniature shrines, with a passage that runs open through the stone base. The vimana is granite throughout, raised over a pillared hall.
@@ -35,17 +34,14 @@ build of Blocks:
 ![Dravidian gateway tower](public/blockn-dravidian-gopuram.png)
 ![Dravidian vimana with its pillared hall](public/blockn-dravidian-vimana.png)
 
-Like the sections below, these architects are in the development build and
-are not yet part of this public branch.
-
-## Promo video and new architects (development build)
+## Promo video and new architects
 
 [![BlockN promo video: the workbench, the period architects, per-part physics data and settlements](public/blockn-promo-cover.png)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
 
 [Watch the 69-second narrated video (MP4, 29 MB)](https://newjordan.github.io/BlockN/public/blockn-promo.mp4)
 
 The video shows the desktop workbench and the `blockn` command line generating
-buildings in the development build. New since the last update:
+buildings. New since the last update:
 
 - **Materials and mass**: every member has one of 28 substances, from limestone, brick and oak to slate, lead and glass, with density, strength and friction. Each build reports its total mass, a bill of materials and a vertical load check.
 - **Weathering and exports**: surfaces weather by exposure under an `age` control. Builds export to GLB, glTF, OBJ, PLY, STL, OFF, Collada, 3MF and USD, and to FBX through Blender, with a physics manifest that lists every member's substance, mass and friction.
@@ -58,26 +54,22 @@ buildings in the development build. New since the last update:
 ![Victorian bay-fronted terrace](public/blockn-victorian-terrace.png)
 ![English village laid out by the settlement planner](public/blockn-english-village.png)
 
-Like the sections below, these features are in the development build and are
-not yet part of this public branch.
-
-## Timberwright houses (development build)
+## Timberwright houses
 
 ![Twin-gable half-timbered house in the green-on-black workbench](public/timberwright-neon.png)
 
 Timberwright generates longhouses, gable-front houses, and twin-gable houses.
 New houses appear in **green outlines on black**. The GLB export can keep the
 wood, plaster, glazing, and roof finishes shown below, or omit materials for
-neutral geometry. The generator is in the development build, not this public
-classical release.
+neutral geometry.
 
 ![The three roof plans with their optional GLB finishes](public/timber-street.png)
 
-## New: Historic Architects (development build)
+## New: Historic Architects
 
 ![Castles, temples, pyramids and pagodas assembling stone by stone](public/historic_architects_preview.gif)
 
-Four new architects join the development build of Blocks. Each one composes a
+Four new architects join BlockN. Each one composes a
 building from the rules of its own tradition, lays the masonry as lift-able
 stones, and is then checked against rules measured from the finished geometry.
 
@@ -95,17 +87,13 @@ stones, and is then checked against rules measured from the finished geometry.
 ![All twelve variants](public/historic_architects_all.png)
 
 These are original compositions built from each tradition's rules, not
-replicas of named monuments. Like the cathedral below, these architects are
-not yet part of this public branch.
+replicas of named monuments.
 
-## Latest Renders: Blocks Architecture System (development build)
+## Latest Renders: Blocks Architecture System
 
-These images come from the current development build of Blocks, the semantic
-architecture system that grew out of LegoGen. Every member is a named,
-human-scale stone, and each render shows real generated geometry in the
-green phosphor style of the workbench. The Gothic Cathedral Architect, the
-expanded classical forms, and the `blockn` CLI shown here are not yet part of
-this public branch.
+These images come from the Blocks architecture system that grew out of
+LegoGen. Every member is a named, human-scale stone, and each render shows
+real generated geometry in the green phosphor style of the workbench.
 
 ![Gothic cathedral, west front: paired spires, rose window, flying buttresses](public/gothic_cathedral_west.png)
 ![Gothic cathedral, east end: chevet with ambulatory, clerestoried hemicycle and radiating buttresses](public/gothic_cathedral_chevet.png)
@@ -115,7 +103,20 @@ this public branch.
 ![Workbench: open roof to inspect the vaults](public/gui_cathedral_vaults.png)
 ![Classical forms: temple, rotunda, basilica, aqueduct, amphitheatre, triumphal arch](public/classical_forms.png)
 
-## Screenshots (this branch)
+## Block mode and regional styles
+
+Block mode designs straight onto Minecraft's 1 m grid instead of voxelizing exact geometry. Walls, roof pitches, stairs and doors are whole blocks, and every block carries its Minecraft block state. It builds castles, village streets, furnished houses, towers, workshops, windmills, mines, cliff apartments and castle towns fitted to a height map, and exports `.mcfunction` commands, voxel grids and Java 1.21 world saves.
+
+- **Style sub-architects**: Tudor merchant house, Hanseatic gable house, Norse longhouse, Alpine chalet, Mediterranean courtyard house, Pueblo terrace and English seld.
+- **Regional town layouts**: Pueblo plaza, Norse farm village and Mediterranean courtyard blocks, picked by climate.
+- **Construction rules**: a knowledge base and rule checker score each building and town against real construction practice. See [docs/ARCHITECTURE_RULES.md](docs/ARCHITECTURE_RULES.md) and [docs/BLOCK_MODE.md](docs/BLOCK_MODE.md).
+
+```bash
+python cli.py voxels castle --blocks --profile blocky --seed 1 --out out/castle --name castle --render
+python cli.py voxels village --blocks --out out/village --name village --render
+```
+
+## Classical screenshots
 
 ![Doric Canonical — large build](public/gui_canonical_large.png)
 ![Doric Monumental](public/gui_monumental.png)
@@ -125,49 +126,42 @@ this public branch.
 
 ## What Is Included
 
-- PyQt5 + PyVista desktop GUI (`main.py`)
-- Headless CLI generation/export (`cli.py`)
-- Classical generator with preset/override controls
-- GLB, JSON, and PNG export paths
-- Unit tests for geometry, scene, and classical generation
+- 47 built-in products: walls, columns, stairs, roofs, facades, structural grids, classical buildings, the Gothic cathedral, Timberwright houses, castles, Egyptian temples, Mesoamerican pyramids, pagodas, Persian iwan courts, Victorian terraces, Chinese halls, Dravidian towers, Nordic stave churches and lofts
+- Settlement planner for English villages and Roman town quarters
+- Block mode with style sub-architects and regional town layouts for Minecraft export
+- 28 substances with mass, a bill of materials and a vertical load check per build
+- Weathered PBR surfaces and exports to GLB, glTF, OBJ, PLY, STL, OFF, Collada, 3MF, USD and FBX (through Blender), with a physics manifest
+- PyQt5 + PyVista desktop workbench (`main.py`) and the `blockn` CLI (`cli.py`)
+- Unit tests for every architect
 
 ## Quick Start
 
 Requires Python 3.10 or newer.
 
 ```bash
-python3 -m venv .venv-public
-source .venv-public/bin/activate  # Windows: .venv-public\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-python3 main.py
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install -e '.[gui,config,export]'
+blockn catalog
+blockn architects
+blockn make stave-church --bundle builds/stave-church
+blockn-gui
 ```
 
-## Environment Separation
+Every command can also be written as `python -m blockn ...`. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the data contracts and extension model.
 
-Keep this repo independent from your development repo:
-
-- Public repo venv: `.venv-public`
-- Dev repo venv: use a different folder name (for example `.venv-dev`)
-- Do not share `.env` files between the two repos
-
-This avoids dependency and config drift between production and experimental work.
-
-## CLI Examples
+## Legacy classical command
 
 ```bash
-python3 cli.py generate --classical-order Doric --seed 123 --out builds/classical.glb --summary
-python3 cli.py generate --classical-order Ionic --classical-preset monumental --classical-front-columns 8 --classical-side-columns 8 --classical-pediment-slope 1.1 --classical-entablature-depth 1.2 --classical-side-roof-overhang 1.25 --classical-foundation-apron --width 24 --depth 24 --summary
-python3 cli.py generate --classical-order Doric --classical-preset canonical --classical-wrap-min-front-span 22 --classical-wrap-min-side-span 14 --classical-wrap-front-coverage 0.60 --width 20 --height 12 --depth 14 --summary
+blockn generate --classical-order Doric --classical-preset canonical --seed 123 --width 20 --height 12 --depth 14 --out builds/classical.glb --summary
 ```
 
 ## Tests
 
 ```bash
-python3 -m unittest tests.test_geometry -v
-python3 -m unittest tests.test_scene -v
-python3 -m unittest tests.test_classical_generator -v
-python3 test_imports.py
+python -m pip install pytest pytest-xdist scipy networkx
+python -m pytest tests -n auto
+python test_imports.py  # full CLI + GUI import check
 ```
 
 ## License

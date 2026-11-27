@@ -51,21 +51,21 @@ class TestClassicalGenerator(unittest.TestCase):
     def _shafts(self, scene: Scene):
         shafts = []
         for block in scene.blocks:
-            if block.block_type != "CYLINDER":
-                continue
             if block.parameters.get("element") != "shaft":
                 continue
             shafts.append(block)
         return shafts
 
     def _cornice_front_width(self, scene: Scene) -> float:
-        widths = [
-            float(block.dimensions[0])
-            for block in scene.blocks
-            if block.parameters.get("element") == "cornice" and block.parameters.get("face") == "front"
-        ]
-        self.assertGreater(len(widths), 0)
-        return max(widths)
+        spans = []
+        for block in scene.blocks:
+            if block.parameters.get("element") != "cornice" or block.parameters.get("face") != "front":
+                continue
+            half = float(block.dimensions[0]) / 2.0
+            center = float(block.position[0])
+            spans.append((center - half, center + half))
+        self.assertGreater(len(spans), 0)
+        return max(hi for _, hi in spans) - min(lo for lo, _ in spans)
 
     def test_doric_vs_ionic_have_distinct_column_rules(self):
         doric_scene = self._generate("Doric")
@@ -114,6 +114,35 @@ class TestClassicalGenerator(unittest.TestCase):
         self.assertEqual(metrics_a["block_count"], metrics_b["block_count"])
         self.assertEqual(metrics_a["bounds_min"], metrics_b["bounds_min"])
         self.assertEqual(metrics_a["bounds_max"], metrics_b["bounds_max"])
+        self.assertEqual(metrics_a["seed_influence"], metrics_b["seed_influence"])
+
+    def test_seed_influence_schema_is_exposed_and_varies_across_seeds(self):
+        scene_a = self._generate("Doric", seed=1010)
+        scene_b = self._generate("Doric", seed=2020)
+
+        metrics_a = get_classical_snapshot_metrics(scene_a)
+        metrics_b = get_classical_snapshot_metrics(scene_b)
+
+        self.assertIn("seed_influence", metrics_a)
+        self.assertIn("seed_influence", metrics_b)
+
+        for key in [
+            "seed",
+            "diameter_scale",
+            "shaft_height_scale",
+            "spacing_scale",
+            "edge_margin_scale",
+            "pediment_slope_scale",
+            "entablature_depth_scale",
+            "side_roof_overhang_scale",
+        ]:
+            self.assertIn(key, metrics_a["seed_influence"])
+            self.assertIn(key, metrics_b["seed_influence"])
+
+        self.assertNotEqual(metrics_a["seed_influence"], metrics_b["seed_influence"])
+        # Seed variation should propagate into measurable geometry metrics.
+        self.assertNotEqual(metrics_a["avg_column_radius"], metrics_b["avg_column_radius"])
+        self.assertNotEqual(metrics_a["pediment_peak_height"], metrics_b["pediment_peak_height"])
 
     def test_entablature_and_pediment_exist_when_enabled(self):
         scene = self._generate("Ionic", seed=2026)
@@ -231,6 +260,51 @@ class TestClassicalGenerator(unittest.TestCase):
         self.assertEqual(metrics["foundation_apron"]["blocks"], len(apron_blocks))
         self.assertEqual(metrics["foundation_apron"]["thresholds"], len(threshold_blocks))
 
+    def test_arch_and_dome_features_are_opt_in_and_reported(self):
+        default_scene = Scene(use_collision=False)
+        default_metrics = generate_classical_building(
+            default_scene,
+            width=18,
+            depth=14,
+            podium_height_actual=3,
+            seed=7171,
+            flags={"use_wedge_pediment": False},
+            order_override="Doric",
+            preset_override="canonical",
+            clear_scene=True,
+        )
+        default_feature_blocks = [
+            b for b in default_scene.blocks if b.parameters.get("element") in {"arch_portal", "dome_cap"}
+        ]
+        self.assertEqual(default_feature_blocks, [])
+        self.assertEqual(default_metrics["feature_shapes"]["arch_count"], 0)
+        self.assertEqual(default_metrics["feature_shapes"]["dome_count"], 0)
+
+        feature_scene = Scene(use_collision=False)
+        feature_metrics = generate_classical_building(
+            feature_scene,
+            width=18,
+            depth=14,
+            podium_height_actual=3,
+            seed=7171,
+            flags={
+                "use_wedge_pediment": False,
+                "add_arch_portal": True,
+                "add_central_dome": True,
+            },
+            order_override="Doric",
+            preset_override="canonical",
+            clear_scene=True,
+        )
+        arch_blocks = [b for b in feature_scene.blocks if b.parameters.get("element") == "arch_portal"]
+        dome_blocks = [b for b in feature_scene.blocks if b.parameters.get("element") == "dome_cap"]
+        self.assertGreater(len(arch_blocks), 0)
+        self.assertGreater(len(dome_blocks), 0)
+        self.assertTrue(feature_metrics["feature_shapes"]["arch_enabled"])
+        self.assertTrue(feature_metrics["feature_shapes"]["dome_enabled"])
+        self.assertGreaterEqual(feature_metrics["feature_shapes"]["arch_count"], 1)
+        self.assertGreaterEqual(feature_metrics["feature_shapes"]["dome_count"], 1)
+
     def test_human_access_elements_are_generated(self):
         scene = self._generate("Doric", seed=2024)
 
@@ -273,7 +347,10 @@ class TestClassicalGenerator(unittest.TestCase):
             and block.parameters.get("stair_side") == "front"
         ]
         self.assertGreater(len(front_steps), 0)
-        self.assertGreater(max(block.dimensions[0] for block in front_steps), doorway["front_passage_width"] * 2.0)
+        span_x = max(block.position[0] + block.dimensions[0] / 2.0 for block in front_steps) - min(
+            block.position[0] - block.dimensions[0] / 2.0 for block in front_steps
+        )
+        self.assertGreater(span_x, doorway["front_passage_width"] * 2.0)
 
     def test_large_facade_can_enable_wrap_stairs(self):
         scene = Scene(use_collision=False)

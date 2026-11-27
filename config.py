@@ -1,7 +1,7 @@
 """
-LegoGen Configuration Module
+BlockN Configuration Module
 
-Centralized configuration management for the LegoGen application.
+Centralized configuration management for the BlockN application.
 Loads settings from environment variables with sensible defaults.
 
 Usage:
@@ -27,7 +27,7 @@ except ImportError:
 
 class Config:
     """
-    Configuration class for LegoGen application.
+    Configuration class for BlockN.
 
     Attributes are loaded from environment variables with fallback defaults.
     """
@@ -189,7 +189,7 @@ class Config:
             Formatted configuration summary string
         """
         lines = [
-            "LegoGen Configuration:",
+            "BlockN Configuration:",
             f"  Project Root: {self.PROJECT_ROOT}",
             f"  Export Dir: {self.EXPORT_DIR}",
             f"  Save Dir: {self.SAVE_DIR}",

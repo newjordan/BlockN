@@ -1,7 +1,7 @@
 """
-LegoGen Constants Module
+BlockN Constants Module
 
-Centralized constants for the LegoGen application.
+Centralized constants for the BlockN application.
 Extracts magic numbers and repeated values from across the codebase.
 
 Usage:

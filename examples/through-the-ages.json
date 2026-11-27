@@ -1,0 +1,13 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "columns": 3,
+  "spacing": 8,
+  "buildings": [
+    {"id": "doric-temple", "request": {"product": "classical-building", "variant": "doric", "detail": "presentation", "seed": 73}},
+    {"id": "ionic-stoa", "request": {"product": "classical-stoa", "variant": "ionic", "detail": "presentation", "seed": 73}},
+    {"id": "roman-rotunda", "request": {"product": "classical-rotunda", "variant": "corinthian", "detail": "presentation", "seed": 73}},
+    {"id": "roman-baths", "request": {"product": "classical-baths", "detail": "presentation", "seed": 73}},
+    {"id": "amphitheatre", "request": {"product": "classical-amphitheatre", "detail": "presentation", "seed": 73}},
+    {"id": "gothic-cathedral", "request": {"product": "gothic-cathedral", "variant": "high-gothic", "detail": "presentation", "seed": 73}}
+  ]
+}

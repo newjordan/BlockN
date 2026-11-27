@@ -1,0 +1,25 @@
+{
+  "schema": "blocks.os-integration/v1",
+  "id": "blocks",
+  "name": "Blocks",
+  "description": "Green phosphor architecture workbench and deterministic kitbash exporter",
+  "kind": "native-application-and-assets",
+  "theme": {"background": "#000000", "foreground": "#00ff41", "rendering": "wireframe"},
+  "desktop": {"argv": ["blockn-gui"]},
+  "agent": {
+    "argvPrefix": ["python", "plugins/blocks-kitbash/scripts/blocks.py"],
+    "doctor": ["doctor"],
+    "catalog": ["catalog", "--json"],
+    "schema": ["agent", "schema"],
+    "craft": ["craft"],
+    "recipeSchema": "blockn.kitbash/v1",
+    "receiptFormat": "json",
+    "meshFormats": ["glb", "obj", "stl", "ply"],
+    "exitCodes": {"0": "pass", "1": "quality failure", "2": "invalid request or IO failure"},
+    "requiresDesktop": false,
+    "requiresCredentials": false
+  },
+  "plugin": "plugins/blocks-kitbash",
+  "skill": "plugins/blocks-kitbash/skills/kitbash/SKILL.md",
+  "capabilities": ["classical-architecture", "gothic-cathedrals", "timber-framed-houses", "kitbash-series", "semantic-replay", "quality-reports", "construction-reports", "craft-rules"]
+}

@@ -11,16 +11,20 @@ try:
     _pyembree_available = True
 except ImportError:
     _pyembree_available = False
-    print("Info: pyembree not found. Raycasting for support checks may be slower.")
 
 
-from .geometry import create_block_mesh, create_wedge_mesh, create_cylinder_mesh # Import geometry functions
+from .geometry import create_block_mesh
 from .materials import ColorTuple # Import color definitions
-
-# Define block type constants
-CUBE = "CUBE"
-WEDGE = "WEDGE" # Renamed from SLOPE_X_POS
-CYLINDER = "CYLINDER"
+from .primitives import (
+    ARCH,
+    CUBE,
+    CYLINDER,
+    DOME,
+    WEDGE,
+    create_primitive_mesh,
+    normalize_primitive_dimensions,
+    primitive_names,
+)
 
 @dataclass
 class Block:
@@ -36,6 +40,7 @@ class Block:
 
     def __post_init__(self):
         """Generate the mesh after initialization if not provided."""
+        self.block_type = str(self.block_type).upper()
         # Only generate mesh if it wasn't provided during __init__
         if self.mesh is None:
             self._generate_mesh()
@@ -47,25 +52,17 @@ class Block:
 
     def _generate_mesh(self):
         """Internal helper to generate the mesh based on block type and parameters."""
-        # Create mesh based on block type
-        if self.block_type == CUBE:
-            # Pass dimensions to the updated function
-            self.mesh = create_block_mesh(self.position, dimensions=self.dimensions)
-        elif self.block_type == WEDGE:
-            # Scene positions are geometric centers; the wedge primitive takes the base center.
-            orientation = self.parameters.get('orientation', '+X')
-            base_position = np.asarray(self.position, dtype=float) - np.array([0.0, self.dimensions[1] / 2.0, 0.0])
-            self.mesh = create_wedge_mesh(base_position, dimensions=self.dimensions, orientation=orientation)
-        elif self.block_type == CYLINDER:
-            # Prioritize parameters for cylinder dimensions
-            radius = self.parameters.get('radius', self.dimensions[0] / 2.0) # Default radius from X dim if not in params
-            height = self.parameters.get('height', self.dimensions[1])       # Default height from Y dim if not in params
-            base_position = np.asarray(self.position, dtype=float) - np.array([0.0, float(height) / 2.0, 0.0])
-            self.mesh = create_cylinder_mesh(base_position, radius=radius, height=height, parameters=self.parameters)
-        else:
-            # Default or fallback to cube if type is unknown
-            print(f"Warning: Unknown block type '{self.block_type}'. Creating cube.")
-            self.mesh = create_block_mesh(self.position, dimensions=self.dimensions)
+        self.dimensions = normalize_primitive_dimensions(
+            self.block_type,
+            self.dimensions,
+            self.parameters,
+        )
+        self.mesh = create_primitive_mesh(
+            self.block_type,
+            self.position,
+            self.dimensions,
+            self.parameters,
+        )
         # Color application moved to __post_init__ to handle meshes passed via __init__
 
     def _apply_color_to_mesh(self):
@@ -76,6 +73,13 @@ class Block:
         if not hasattr(self.mesh, 'visual'):
             self.mesh.visual = trimesh.visual.ColorVisuals(mesh=self.mesh)
         try:
+            if self.parameters.get('primitive_id') and self.mesh.visual.kind == 'texture':
+                # Semantic primitives have an authored RGBA and generated UVs,
+                # not an authored texture. Assigning .vertex_colors on a
+                # TextureVisuals silently leaves its gray material in GLB.
+                self.mesh.visual.material = trimesh.visual.material.PBRMaterial(
+                    baseColorFactor=self.color, metallicFactor=0.0, roughnessFactor=0.85)
+                return
             # Use face colors for robustness with boolean ops, but vertex colors are needed for smooth shading
             # Let's stick to vertex colors for now, as optimization applies face colors later.
             vertex_colors = np.tile(self.color, (len(self.mesh.vertices), 1))
@@ -120,6 +124,7 @@ class Scene:
     def __init__(self, use_collision: bool = True):
         self.blocks: List[Block] = []
         self._next_block_id = 0
+        self.generation_metadata: Optional[Dict[str, Any]] = None
         # Collision manager for accurate overlap detection
         self.collision_manager = _create_collision_manager(use_collision)
         collision_enabled = self.collision_manager is not None
@@ -149,38 +154,26 @@ class Scene:
 
         # --- Determine Actual Dimensions/Height ---
         # Use dimensions if provided, else default. Crucially, determine actual height for support check.
+        normalized_block_type = str(block_type).upper()
         actual_dimensions = np.array(dimensions if dimensions is not None else [1.0, 1.0, 1.0], dtype=float)
         actual_parameters = parameters or {}
-        block_height = float(actual_dimensions[1]) # Default height from Y dimension
-        if block_type == CYLINDER:
-            # For cylinders, height might be in parameters, overriding dimensions[1]
-            block_height = float(actual_parameters.get('height', actual_dimensions[1]))
-            radius = float(actual_parameters.get('radius', actual_dimensions[0] / 2.0))
-            # Persist cylinder dimensions in block state/serialization for consistent reload behavior.
-            actual_dimensions = np.array([radius * 2.0, block_height, radius * 2.0], dtype=float)
-        # Add elif for other block types if their height isn't simply dimensions[1]
+        actual_dimensions = normalize_primitive_dimensions(
+            normalized_block_type,
+            actual_dimensions,
+            actual_parameters,
+        )
+        block_height = float(actual_dimensions[1])
 
         # --- 1. Generate Candidate Mesh ---
         # Use the determined actual dimensions/parameters
         new_mesh: Optional[trimesh.Trimesh] = None
         try:
-            if block_type == CUBE:
-                # Cube height is actual_dimensions[1], which is already block_height
-                new_mesh = create_block_mesh(position, dimensions=actual_dimensions)
-            elif block_type == WEDGE:
-                # Wedge height is actual_dimensions[1], which is already block_height.
-                # Primitive position is the base center; scene position is the geometric center.
-                orientation = actual_parameters.get('orientation', '+X')
-                base_position = np.asarray(position, dtype=float) - np.array([0.0, block_height / 2.0, 0.0])
-                new_mesh = create_wedge_mesh(base_position, dimensions=actual_dimensions, orientation=orientation)
-            elif block_type == CYLINDER:
-                # Use actual parameters and pre-calculated block_height
-                radius = actual_parameters.get('radius', actual_dimensions[0] / 2.0)
-                base_position = np.asarray(position, dtype=float) - np.array([0.0, block_height / 2.0, 0.0])
-                new_mesh = create_cylinder_mesh(base_position, radius=radius, height=block_height, parameters=actual_parameters)
-            else:
-                print(f"Warning: Unknown block type '{block_type}' requested. Cannot generate mesh.")
-                return None # Cannot proceed without a mesh
+            new_mesh = create_primitive_mesh(
+                normalized_block_type,
+                position,
+                actual_dimensions,
+                actual_parameters,
+            )
 
             if new_mesh is None or new_mesh.is_empty:
                  print(f"Warning: Mesh generation failed or resulted in empty mesh for {block_type} at {position}. Skipping.")
@@ -222,12 +215,8 @@ class Scene:
                 base_y = position[1] - block_height / 2.0 # Use actual block_height
                 # Use floor for X/Z grid index calculation
                 check_x = int(np.floor(position[0]))
-                # occupied_cells stores the cell capped by an existing block's top face
-                # (index = floor(top_y) - 1). Match that cell: the highest integer plane
-                # at or below this base. int(base_y - eps) jumps a cell as soon as the
-                # base crosses an integer, so a 1e-6 stack fails and a 0.1 same-column
-                # gap never reaches the HYBRID distance check.
-                base_cell_y = int(np.floor(base_y)) - 1
+                # Calculate the integer grid cell containing the *base* face of the new block.
+                base_cell_y = int(base_y - 1e-9) # Y index of the cell containing the bottom face
                 # Use floor for Z grid index calculation
                 check_z = int(np.floor(position[2]))
 
@@ -243,7 +232,7 @@ class Scene:
                 if not grid_check_passed:
                     # If the grid check fails, it means the cell where the base should be is not marked as occupied (by a top surface below).
                     # Check if the required support cell is below ground (Y=-1). If so, it's an invalid placement.
-                    if base_y < -support_tolerance:
+                    if base_cell_y < 0:
                          print(f"Warning: Block at {position} is attempting to place below ground level (base in cell {support_coord_needed}). Skipping.")
                     else:
                          # Only print floating warning if not below ground
@@ -340,7 +329,7 @@ class Scene:
 
         block_args = {
             "position": position,
-            "block_type": block_type,
+            "block_type": normalized_block_type,
             "block_id": block_id,
             "mesh": new_mesh # Pass the pre-generated mesh
         }
@@ -419,6 +408,7 @@ class Scene:
         """Removes all blocks from the scene and resets the collision manager."""
         self.blocks = []
         self._next_block_id = 0
+        self.generation_metadata = None
         # Reset the collision manager; keep previous state if not specified
         if use_collision is None:
             use_collision = self.collision_manager is not None
@@ -433,14 +423,23 @@ class Scene:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializes the scene state to a dictionary."""
-        return {
+        data = {
+            "schema_version": "blockn.scene/v2",
             "blocks": [block.to_dict() for block in self.blocks],
             "next_block_id": self._next_block_id
-            # Add other scene properties here if needed (e.g., generation params)
         }
+        if self.generation_metadata is not None:
+            data["metadata"] = self.generation_metadata
+        return data
 
     def from_dict(self, data: Dict[str, Any]):
         """Reconstructs the scene state from a dictionary."""
+        schema_version = data.get("schema_version")
+        if schema_version not in (None, "blockn.scene/v2"):
+            raise ValueError(
+                f"Unsupported scene schema_version '{schema_version}'; "
+                "expected 'blockn.scene/v2' or a legacy document without a version"
+            )
         self.clear() # Start with an empty scene (clears blocks and collision manager)
         block_data_list = data.get("blocks", [])
         # self.blocks = [] # Already cleared by self.clear()
@@ -458,7 +457,7 @@ class Scene:
             if block_type_loaded == "SLOPE_X_POS": # Handle old name from saved files
                 block_type = WEDGE
                 print("Info: Loaded old block type 'SLOPE_X_POS', converting to 'WEDGE'.")
-            elif block_type_loaded not in [CUBE, WEDGE, CYLINDER]: # Add new types here
+            elif block_type_loaded not in primitive_names():
                  print(f"Warning: Loaded unknown block type '{block_type_loaded}', defaulting to CUBE.")
                  block_type = CUBE
             else:
@@ -501,6 +500,8 @@ class Scene:
 
         # Restore the next block ID counter
         self._next_block_id = data.get("next_block_id", max_id + 1)
+        loaded_metadata = data.get("metadata")
+        self.generation_metadata = loaded_metadata if isinstance(loaded_metadata, dict) else None
 
         # Optional: Post-load collision check (Task 2.3)
         try:

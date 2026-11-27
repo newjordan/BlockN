@@ -1,9 +1,9 @@
 @echo off
-REM LegoGen Setup Script (Windows)
-REM This script sets up the LegoGen development environment
+REM BlockN Setup Script (Windows)
+REM This script sets up the BlockN CLI and optional desktop GUI
 
 echo =========================================
-echo LegoGen Setup Script
+echo BlockN Setup Script
 echo =========================================
 echo.
 
@@ -16,9 +16,9 @@ if errorlevel 1 (
 )
 
 python --version
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"
+python -c "import sys; sys.exit(0 if sys.version_info ^>= (3, 10) else 1)"
 if errorlevel 1 (
-    echo Error: Python 3.10 or newer is required
+    echo Error: BlockN requires Python 3.10 or newer
     exit /b 1
 )
 echo.
@@ -45,8 +45,8 @@ python -m pip install --upgrade pip
 echo.
 
 REM Install dependencies
-echo Installing dependencies from requirements.txt...
-pip install -r requirements.txt
+echo Installing BlockN with GUI and configuration extras...
+python -m pip install .[gui,config]
 echo.
 
 REM Create .env file if it doesn't exist
@@ -81,9 +81,10 @@ if %TEST_EXIT_CODE% EQU 0 (
     echo =========================================
     echo.
     echo To get started:
-    echo   1. Edit .env file and add your API keys ^(optional^)
-    echo   2. Activate virtual environment: venv\Scripts\activate.bat
-    echo   3. Run the application: python main.py
+    echo   1. Activate virtual environment: venv\Scripts\activate.bat
+    echo   2. Discover products: blockn catalog
+    echo   3. Build a primitive: blockn make wall --bundle builds/wall
+    echo   4. Run the legacy desktop GUI if wanted: python main.py
     echo.
     echo For more information, see README.md
     echo.

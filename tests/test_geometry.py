@@ -10,7 +10,14 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import functions to test
-from core.geometry import optimize_blocks, create_block_mesh, create_wedge_mesh, create_cylinder_mesh
+from core.geometry import (
+    create_arch_mesh,
+    create_block_mesh,
+    create_cylinder_mesh,
+    create_dome_mesh,
+    create_wedge_mesh,
+    optimize_blocks,
+)
 from core.scene import Block, ColorTuple
 
 # Define some colors for testing
@@ -138,18 +145,31 @@ class TestPrimitiveCreation(unittest.TestCase):
         self.assertTrue(hasattr(mesh.visual, 'uv'))
         # Volume of a wedge is 0.5 * base_area * height (base area = width * depth)
         expected_volume = 0.5 * (dims[0] * dims[2]) * dims[1]
-        # Increase tolerance slightly for volume check due to manual mesh creation
+        self.assertTrue(mesh.is_winding_consistent)
         self.assertTrue(np.isclose(mesh.volume, expected_volume, rtol=1e-5),
                         f"Wedge volume {mesh.volume} not close to expected {expected_volume}")
-        # Check bounds (approximate) - Base center at pos, height extends +Y
-        # Since base center is at (0,0,0), bounds are [-w/2, 0, -d/2] to [w/2, h, d/2]
-        expected_bounds = np.array([[-dims[0]/2, 0.0, -dims[2]/2],
-                                    [ dims[0]/2, dims[1],  dims[2]/2]])
+        # Wedge API uses geometric-center positioning, so Y spans [-h/2, +h/2] around pos[1].
+        expected_bounds = np.array([[-dims[0]/2, -dims[1]/2, -dims[2]/2],
+                                    [ dims[0]/2,  dims[1]/2,  dims[2]/2]])
         self.assertTrue(np.allclose(mesh.bounds, expected_bounds))
+
+    def test_wedge_orientations_are_consistent_positive_solids(self):
+        dims = np.array([2.0, 3.0, 4.0])
+        expected_volume = 0.5 * np.prod(dims)
+        for orientation in ("+X", "-X", "+Z", "-Z"):
+            with self.subTest(orientation=orientation):
+                mesh = create_wedge_mesh(
+                    position=np.zeros(3),
+                    dimensions=dims,
+                    orientation=orientation,
+                )
+                self.assertTrue(mesh.is_watertight)
+                self.assertTrue(mesh.is_winding_consistent)
+                self.assertTrue(np.isclose(mesh.volume, expected_volume, rtol=1e-6))
 
     def test_create_cylinder(self):
         """Test the create_cylinder_mesh function."""
-        pos = np.array([1.0, 1.0, 0.0]) # Base center
+        pos = np.array([1.0, 1.0, 0.0]) # Geometric center
         radius = 0.5
         height = 2.0
         mesh = create_cylinder_mesh(position=pos, radius=radius, height=height)
@@ -159,9 +179,9 @@ class TestPrimitiveCreation(unittest.TestCase):
         # Volume of cylinder is pi * r^2 * h
         expected_volume = np.pi * (radius**2) * height
         self.assertTrue(np.isclose(mesh.volume, expected_volume, rtol=0.05)) # Allow tolerance due to facets
-        # Check bounds (approximate) - Base on XZ, Height on Y
-        expected_bounds = np.array([[pos[0]-radius, pos[1], pos[2]-radius],
-                                    [pos[0]+radius, pos[1]+height, pos[2]+radius]])
+        # Check bounds for center-positioned Y-aligned cylinder.
+        expected_bounds = np.array([[pos[0]-radius, pos[1]-height/2.0, pos[2]-radius],
+                                    [pos[0]+radius, pos[1]+height/2.0, pos[2]+radius]])
         self.assertTrue(np.allclose(mesh.bounds, expected_bounds, atol=0.01))
 
     def test_create_cylinder_custom_sections(self):
@@ -181,6 +201,47 @@ class TestPrimitiveCreation(unittest.TestCase):
         # Trimesh primitive might optimize this slightly. Check number of faces instead.
         # Expected faces = sections * 2 (sides) + sections * 2 (caps) = 4 * sections
         self.assertEqual(len(mesh.faces), 4 * custom_sections)
+
+    def test_create_arch(self):
+        """Test the create_arch_mesh function."""
+        pos = np.array([2.0, 3.0, 4.0])
+        dims = np.array([2.4, 2.0, 1.2])
+        mesh = create_arch_mesh(position=pos, dimensions=dims, parameters={"segments": 12})
+
+        self.assertIsInstance(mesh, trimesh.Trimesh)
+        self.assertTrue(mesh.is_watertight)
+        self.assertTrue(hasattr(mesh.visual, 'uv'))
+        expected_bounds = np.array([
+            [pos[0] - dims[0] / 2.0, pos[1] - dims[1] / 2.0, pos[2] - dims[2] / 2.0],
+            [pos[0] + dims[0] / 2.0, pos[1] + dims[1] / 2.0, pos[2] + dims[2] / 2.0],
+        ])
+        self.assertTrue(np.allclose(mesh.bounds, expected_bounds, atol=1e-2))
+        full_block_volume = dims[0] * dims[1] * dims[2]
+        self.assertLess(abs(mesh.volume), full_block_volume * 0.85)
+
+    def test_create_dome(self):
+        """Test the create_dome_mesh function."""
+        pos = np.array([0.0, 2.0, -1.0])
+        dims = np.array([2.0, 1.2, 1.6])
+        mesh = create_dome_mesh(
+            position=pos,
+            dimensions=dims,
+            parameters={"layers": 10, "sections": 20},
+        )
+
+        self.assertIsInstance(mesh, trimesh.Trimesh)
+        self.assertTrue(mesh.is_watertight)
+        self.assertTrue(mesh.is_winding_consistent)
+        self.assertGreater(mesh.volume, 0.0)
+        self.assertTrue(hasattr(mesh.visual, 'uv'))
+        expected_bounds = np.array([
+            [pos[0] - dims[0] / 2.0, pos[1] - dims[1] / 2.0, pos[2] - dims[2] / 2.0],
+            [pos[0] + dims[0] / 2.0, pos[1] + dims[1] / 2.0, pos[2] + dims[2] / 2.0],
+        ])
+        self.assertTrue(np.allclose(mesh.bounds, expected_bounds, atol=1e-2))
+        cylinder_volume = np.pi * (dims[0] / 2.0) * (dims[2] / 2.0) * dims[1]
+        self.assertGreater(abs(mesh.volume), cylinder_volume * 0.35)
+        self.assertLess(abs(mesh.volume), cylinder_volume)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,18 @@
+{
+  "name": "blocks-kitbash",
+  "version": "0.3.0",
+  "description": "Build classical architecture and Gothic cathedrals as deterministic, quality-checked asset kits.",
+  "author": {
+    "name": "newjordan"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Blocks Kitbash",
+    "shortDescription": "Build and export architectural kits.",
+    "longDescription": "Create classical buildings and Gothic cathedrals, compose reusable kits, and export meshes with replayable recipes and quality reports.",
+    "developerName": "newjordan",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Build a kitbashed series of six architectural buildings and export a combined GLB with individual assets."
+  }
+}

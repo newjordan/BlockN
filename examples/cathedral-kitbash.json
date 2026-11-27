@@ -1,0 +1,17 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 9,
+  "columns": 3,
+  "buildings": [
+    {
+      "id": "high-gothic-precinct",
+      "parts": [
+        {"id": "podium", "request": {"product": "site-pad", "width": 38, "height": 0.8, "depth": 74}},
+        {"id": "cathedral", "request": {"product": "gothic-cathedral", "variant": "high-gothic", "detail": "presentation", "seed": 73}, "offset": [0, 0.8, 0]},
+        {"id": "approach", "request": {"product": "stair", "width": 5, "height": 0.8, "depth": 4}, "offset": [0, 0, -39]}
+      ]
+    },
+    {"id": "english-crossing", "request": {"product": "gothic-cathedral", "variant": "early-english", "bays": 8, "detail": "presentation", "seed": 74}},
+    {"id": "rayonnant-study", "request": {"product": "gothic-cathedral", "variant": "rayonnant", "bays": 7, "detail": "presentation", "seed": 75, "parameters": {"apse_sides": 9}}}
+  ]
+}

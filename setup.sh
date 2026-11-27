@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# LegoGen Setup Script (Linux/macOS)
-# This script sets up the LegoGen development environment
+# BlockN Setup Script (Linux/macOS)
+# This script sets up the BlockN CLI and optional desktop GUI.
 
 set -e  # Exit on error
 
 echo "========================================="
-echo "LegoGen Setup Script"
+echo "BlockN Setup Script"
 echo "========================================="
 echo ""
 
@@ -16,13 +16,12 @@ if ! command -v python3 &> /dev/null; then
     echo "Error: Python 3 is not installed"
     exit 1
 fi
-
-PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
-PYTHON_OK=$(python3 -c 'import sys; print(int(sys.version_info >= (3, 10)))')
-if [ "$PYTHON_OK" != "1" ]; then
-    echo "Error: Python 3.10 or newer is required (found $PYTHON_VERSION)"
+if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+    echo "Error: BlockN requires Python 3.10 or newer"
     exit 1
 fi
+
+PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
 echo "Found Python $PYTHON_VERSION"
 echo ""
 
@@ -48,8 +47,8 @@ pip install --upgrade pip
 echo ""
 
 # Install dependencies
-echo "Installing dependencies from requirements.txt..."
-pip install -r requirements.txt
+echo "Installing BlockN with GUI and configuration extras..."
+python -m pip install '.[gui,config]'
 echo ""
 
 # Create .env file if it doesn't exist
@@ -74,10 +73,11 @@ echo ""
 
 # Run tests to verify installation
 echo "Running tests to verify installation..."
-set +e
-python3 -m unittest discover tests -v
-TEST_EXIT_CODE=$?
-set -e
+if python3 -m unittest discover tests -v; then
+    TEST_EXIT_CODE=0
+else
+    TEST_EXIT_CODE=$?
+fi
 echo ""
 
 if [ $TEST_EXIT_CODE -eq 0 ]; then
@@ -86,9 +86,10 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
     echo "========================================="
     echo ""
     echo "To get started:"
-    echo "  1. Edit .env file and add your API keys (optional)"
-    echo "  2. Activate virtual environment: source venv/bin/activate"
-    echo "  3. Run the application: python3 main.py"
+    echo "  1. Activate virtual environment: source venv/bin/activate"
+    echo "  2. Discover products: blockn catalog"
+    echo "  3. Build a primitive: blockn make wall --bundle builds/wall"
+    echo "  4. Run the legacy desktop GUI if wanted: python3 main.py"
     echo ""
     echo "For more information, see README.md"
     echo ""

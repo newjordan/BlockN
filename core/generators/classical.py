@@ -60,29 +60,36 @@ ORDER_SPECS: Dict[str, GreekOrderSpec] = {
         shaft_height_ratio=5.4,
         clear_spacing_ratio=1.30,
         edge_margin_ratio=0.66,
-        base_height_ratio=0.17,
+        base_height_ratio=0.0,
         base_width_ratio=1.08,
-        capital_height_ratio=0.66,
+        capital_height_ratio=0.55,
         capital_width_ratio=1.40,
         entablature_ratio=0.27,
         pediment_rise_over_half_span=0.25,
-        shaft_sections=18,
+        shaft_sections=20,
     ),
     "Ionic": GreekOrderSpec(
         name="Ionic",
         base_diameter=0.76,
-        shaft_height_ratio=9.1,
+        shaft_height_ratio=8.2,
         clear_spacing_ratio=2.35,
         edge_margin_ratio=0.92,
         base_height_ratio=0.48,
         base_width_ratio=1.34,
-        capital_height_ratio=0.80,
+        capital_height_ratio=0.52,
         capital_width_ratio=1.58,
         entablature_ratio=0.18,
         pediment_rise_over_half_span=0.21,
         shaft_sections=24,
     ),
 }
+
+# Block-model design presets, not universal historical measurements.
+ORDER_SPECS.update({
+    "Tuscan": GreekOrderSpec("Tuscan", 1.0, 6.0, 1.7, 0.75, 0.4, 1.25, 0.5, 1.3, 0.23, 0.23, 24),
+    "Corinthian": GreekOrderSpec("Corinthian", 0.76, 9.5, 2.2, 0.92, 0.5, 1.35, 1.15, 1.65, 0.18, 0.21, 28),
+    "Composite": GreekOrderSpec("Composite", 0.78, 9.5, 2.2, 0.95, 0.5, 1.35, 1.25, 1.75, 0.19, 0.21, 28),
+})
 
 PRESET_SPECS: Dict[str, ClassicalPreset] = {
     "compact": ClassicalPreset(
@@ -130,6 +137,8 @@ DEFAULT_FLAGS: Dict[str, bool] = {
     "egress_stairs": True,
     "entrance_markers": False,
     "foundation_apron": False,
+    "add_arch_portal": False,
+    "add_central_dome": False,
     "validate_invariants": True,
     # The support grid is unit-cell based and rejects valid overhangs/continuous members.
     "disable_support_for_classical": True,
@@ -149,6 +158,8 @@ ACCESS_MARKER_COLOR: ColorTuple = (232, 186, 110, 255)
 STAIR_COLOR: ColorTuple = (172, 172, 172, 255)
 APRON_COLOR: ColorTuple = (166, 166, 166, 255)
 THRESHOLD_COLOR: ColorTuple = (186, 186, 186, 255)
+ARCH_FEATURE_COLOR: ColorTuple = (164, 158, 146, 255)
+DOME_FEATURE_COLOR: ColorTuple = (138, 144, 154, 255)
 
 
 def _merge_flags(flags: Optional[Dict[str, bool]]) -> Dict[str, bool]:
@@ -163,6 +174,7 @@ def _resolve_order(order_override: Optional[str], rng: random.Random) -> str:
     aliases = {
         "doric": "Doric",
         "ionic": "Ionic",
+        **{name.lower(): name for name in ORDER_SPECS},
         "ioinic": "Ionic",  # common typo
         "random": None,
         "": None,
@@ -204,6 +216,43 @@ def _resolve_preset(preset_override: Optional[str]) -> ClassicalPreset:
 
 def _clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, value))
+
+
+def _seed_unit(seed: Optional[int], label: str, rng: random.Random) -> float:
+    """
+    Deterministic [0, 1) value per seed/label pair.
+    Falls back to call-local randomness when seed is omitted.
+    """
+    if seed is None:
+        return rng.random()
+    scoped_rng = random.Random(f"classical:{int(seed)}:{label}")
+    return scoped_rng.random()
+
+
+def _seed_scale(
+    seed: Optional[int],
+    label: str,
+    rng: random.Random,
+    lower: float,
+    upper: float,
+) -> float:
+    return lower + (upper - lower) * _seed_unit(seed, label, rng)
+
+
+def _seed_influence_profile(seed: Optional[int], rng: random.Random) -> Dict[str, float]:
+    """
+    Central seed schema for controlled classical variation.
+    Each field is bounded to keep geometry stable while still varying metrics.
+    """
+    return {
+        "diameter_scale": _seed_scale(seed, "diameter_scale", rng, 0.93, 1.08),
+        "shaft_height_scale": _seed_scale(seed, "shaft_height_scale", rng, 0.94, 1.12),
+        "spacing_scale": _seed_scale(seed, "spacing_scale", rng, 0.90, 1.12),
+        "edge_margin_scale": _seed_scale(seed, "edge_margin_scale", rng, 0.94, 1.08),
+        "pediment_slope_scale": _seed_scale(seed, "pediment_slope_scale", rng, 0.88, 1.16),
+        "entablature_depth_scale": _seed_scale(seed, "entablature_depth_scale", rng, 0.90, 1.14),
+        "side_roof_overhang_scale": _seed_scale(seed, "side_roof_overhang_scale", rng, 0.92, 1.18),
+    }
 
 
 def _required_span(count: int, member_width: float, clear_spacing: float, margin: float) -> float:
@@ -327,7 +376,7 @@ def get_classical_snapshot_metrics(scene: Scene) -> Dict[str, Any]:
     shaft_blocks = [
         block
         for block in scene.blocks
-        if block.block_type == CYLINDER and block.parameters.get("element") == "shaft"
+        if block.parameters.get("element") == "shaft"
     ]
     if shaft_blocks:
         avg_radius = float(np.mean([block.parameters["radius"] for block in shaft_blocks]))
@@ -490,33 +539,24 @@ def _add_stair_run(
     if step_count <= 0 or top_y <= 0.0:
         return
 
-    step_rise = top_y / float(step_count)
-    step_depth = width_z if ascend_axis == "Z" else width_x
+    from core.temple_masonry import stair_run
 
-    for idx in range(step_count):
-        current_height = step_rise * (idx + 1)
-        y_center = current_height / 2.0
-        # Keep the highest step adjacent to the podium edge and lowest step outside.
-        outward_step_index = (step_count - idx) - 0.5
-
-        if ascend_axis == "Z":
-            z_center = top_edge_coord + direction_sign * (step_depth * outward_step_index)
-            x_center = center_x
-            dims = np.array([width_x, current_height, step_depth], dtype=float)
-        else:
-            x_center = top_edge_coord + direction_sign * (step_depth * outward_step_index)
-            z_center = center_z
-            dims = np.array([step_depth, current_height, width_z], dtype=float)
-
-        _add_cube(
-            scene,
-            x_center,
-            y_center,
-            z_center,
-            dims,
-            color,
-            parameters={**parameters, "step_index": int(idx)},
-        )
+    extra = {key: value for key, value in parameters.items() if key not in {"order", "element"}}
+    stair_run(
+        scene,
+        center_x=center_x,
+        center_z=center_z,
+        width_x=width_x,
+        width_z=width_z,
+        ascend_axis=ascend_axis,
+        direction_sign=direction_sign,
+        top_edge_coord=top_edge_coord,
+        top_y=top_y,
+        step_count=step_count,
+        order=parameters.get("order"),
+        color=color,
+        **extra,
+    )
 
 
 def _add_cube(
@@ -590,6 +630,98 @@ def _add_wedge(
     )
 
 
+def _add_optional_feature_shapes(
+    scene: Scene,
+    *,
+    order_name: str,
+    envelope: TempleEnvelope,
+    podium_top_y: float,
+    front_run: List[float],
+    member_width: float,
+    roof_peak_y: float,
+    enable_arch_portal: bool,
+    enable_central_dome: bool,
+) -> Dict[str, Any]:
+    feature_metrics: Dict[str, Any] = {
+        "arch_enabled": bool(enable_arch_portal),
+        "dome_enabled": bool(enable_central_dome),
+        "arch_count": 0,
+        "dome_count": 0,
+    }
+
+    center_x = (envelope.x_min + envelope.x_max) / 2.0
+    center_z = (envelope.z_min + envelope.z_max) / 2.0
+
+    if enable_arch_portal and len(front_run) >= 2:
+        opening_center_x, clear_width = _pick_opening_center(
+            front_run,
+            member_width=member_width,
+            preferred_center=center_x,
+        )
+        clear_width = max(clear_width, member_width * 1.05)
+        arch_width = _clamp(clear_width * 0.82, member_width * 0.95, clear_width * 0.98)
+        column_span_y = max(0.6, envelope.entablature_top_y - podium_top_y)
+        arch_height = _clamp(column_span_y * 0.38, max(1.0, member_width * 0.95), column_span_y * 0.62)
+        arch_depth = _clamp(member_width * 0.58, 0.5, member_width * 0.95)
+        arch_center_z = envelope.z_max - member_width - (arch_depth / 2.0) - STACK_EPSILON
+        arch_center_z = _clamp(
+            arch_center_z,
+            envelope.z_min + (arch_depth / 2.0) + STACK_EPSILON,
+            envelope.z_max - (arch_depth / 2.0) - STACK_EPSILON,
+        )
+        arch_center_y = podium_top_y + (arch_height / 2.0) + STACK_EPSILON
+
+        from core.temple_masonry import open_arch
+        before = len(scene.blocks)
+        open_arch(
+            scene,
+            opening_center_x,
+            podium_top_y + STACK_EPSILON,
+            arch_center_z,
+            arch_width,
+            arch_height,
+            arch_depth,
+            order_name,
+            element="arch_portal",
+        )
+        feature_metrics["arch_count"] = max(0, len(scene.blocks) - before)
+
+    if enable_central_dome:
+        roof_span_x = max(0.2, envelope.x_max - envelope.x_min)
+        roof_span_z = max(0.2, envelope.z_max - envelope.z_min)
+        dome_width = _clamp(
+            roof_span_x * (0.30 if order_name == "Doric" else 0.34),
+            member_width * 1.35,
+            roof_span_x * 0.56,
+        )
+        dome_depth = _clamp(
+            roof_span_z * (0.32 if order_name == "Doric" else 0.36),
+            member_width * 1.30,
+            roof_span_z * 0.62,
+        )
+        dome_height = _clamp(
+            min(dome_width, dome_depth) * (0.44 if order_name == "Doric" else 0.50),
+            member_width * 0.85,
+            min(roof_span_x, roof_span_z) * 0.46,
+        )
+        from core.temple_masonry import dome_cap
+        before = len(scene.blocks)
+        dome_cap(
+            scene,
+            center_x,
+            roof_peak_y + STACK_EPSILON,
+            center_z,
+            dome_width,
+            dome_height,
+            dome_depth,
+            order_name,
+            element="dome_cap",
+        )
+        feature_metrics["dome_count"] = max(0, len(scene.blocks) - before)
+
+    return feature_metrics
+
+
 def _build_column(
     scene: Scene,
     order: GreekOrderSpec,
@@ -604,114 +736,60 @@ def _build_column(
     capital_width: float,
     column_metadata: Optional[Dict[str, Any]] = None,
 ) -> float:
+    from ..architectural_geometry import mesh_parameters
+    from ..classical_orders import column_meshes, course_part_mesh, fluted_shaft_courses
+
     metadata = dict(column_metadata or {})
-    y = podium_top
-
-    if order.name == "Ionic":
-        lower_h = base_height * 0.55
-        upper_h = base_height - lower_h
-        _add_cylinder(
-            scene,
-            x,
-            _center_y(y, lower_h),
-            z,
-            radius=(base_width / 2.0) * 1.05,
-            height=lower_h,
-            sections=order.shaft_sections,
-            color=BASE_COLOR,
-            parameters={"order": order.name, "element": "base_lower", **metadata},
-        )
-        y += lower_h + STACK_EPSILON
-        _add_cylinder(
-            scene,
-            x,
-            _center_y(y, upper_h),
-            z,
-            radius=(base_width / 2.0) * 0.95,
-            height=upper_h,
-            sections=order.shaft_sections,
-            color=BASE_COLOR,
-            parameters={"order": order.name, "element": "base_upper", **metadata},
-        )
-        y += upper_h + STACK_EPSILON
-    else:
-        _add_cube(
-            scene,
-            x,
-            _center_y(y, base_height),
-            z,
-            np.array([base_width, base_height, base_width]),
-            BASE_COLOR,
-            parameters={"order": order.name, "element": "base", **metadata},
-        )
-        y += base_height + STACK_EPSILON
-
-    _add_cylinder(
-        scene,
-        x,
-        _center_y(y, shaft_height),
-        z,
-        radius=column_radius,
-        height=shaft_height,
-        sections=order.shaft_sections,
-        color=COLUMN_COLOR,
-        parameters={"order": order.name, "element": "shaft", **metadata},
-    )
-    y += shaft_height + STACK_EPSILON
-
-    if order.name == "Ionic":
-        neck_h = capital_height * 0.45
-        abacus_h = capital_height - neck_h
-        _add_cylinder(
-            scene,
-            x,
-            _center_y(y, neck_h),
-            z,
-            radius=max(column_radius * 0.95, (capital_width / 2.0) * 0.84),
-            height=neck_h,
-            sections=order.shaft_sections,
-            color=COLUMN_COLOR,
-            parameters={"order": order.name, "element": "capital_neck", **metadata},
-        )
-        y += neck_h + STACK_EPSILON
-        _add_cube(
-            scene,
-            x,
-            _center_y(y, abacus_h),
-            z,
-            np.array([capital_width * 1.12, abacus_h, capital_width * 1.12]),
-            BASE_COLOR,
-            parameters={"order": order.name, "element": "capital_abacus", **metadata},
-        )
-        y += abacus_h
-    else:
-        echinus_h = capital_height * 0.42
-        abacus_h = capital_height - echinus_h
-        _add_cylinder(
-            scene,
-            x,
-            _center_y(y, echinus_h),
-            z,
-            radius=(capital_width / 2.0),
-            height=echinus_h,
-            sections=order.shaft_sections,
-            color=COLUMN_COLOR,
-            parameters={"order": order.name, "element": "capital_echinus", **metadata},
-        )
-        y += echinus_h + STACK_EPSILON
-        _add_cube(
-            scene,
-            x,
-            _center_y(y, abacus_h),
-            z,
-            np.array([capital_width, abacus_h, capital_width]),
-            BASE_COLOR,
-            parameters={"order": order.name, "element": "capital_abacus", **metadata},
-        )
-        y += abacus_h
-
-    return y
-
+    parts = column_meshes(order.name, column_radius, shaft_height, base_height,
+                          base_width, capital_height, capital_width)
+    flute_count = 20 if order.name == "Doric" else (0 if order.name == "Tuscan" else 24)
+    top_ratio = 0.83 if order.name == "Doric" else 0.86
+    fillet = 0.18 if flute_count == 24 else 0.0
+    side = metadata.get("run_axis") == "Z" or metadata.get("run_face") in {"left", "right"}
+    host = f"column.{x:.5f}.{z:.5f}.{podium_top:.5f}"
+    for part in parts:
+        if part.element == "shaft":
+            lo = float(part.mesh.bounds[0, 1])
+            hi = float(part.mesh.bounds[1, 1])
+            members = []
+            for course, drum in enumerate(fluted_shaft_courses(
+                    column_radius, hi - lo, flutes=flute_count, fillet=fillet, top_ratio=top_ratio)):
+                drum.apply_translation([0.0, lo, 0.0])
+                members.append((drum, course))
+        else:
+            members = [(piece, index) for index, piece in enumerate(course_part_mesh(part.mesh))]
+        for mesh, course in members:
+            if side:
+                mesh.vertices = mesh.vertices[:, [2, 1, 0]] * [1, 1, -1]
+            mesh.apply_translation([x, podium_top, z])
+            position, dimensions, parameters = mesh_parameters(mesh)
+            parameters.update({"order": order.name, "element": part.element, **metadata,
+                               "host_id": host})
+            if part.element == "shaft":
+                parameters.update({
+                    "radius": float(column_radius),
+                    "height": float(shaft_height + (base_height if order.name == "Doric" else 0)),
+                    "sections": order.shaft_sections,
+                    "flute_count": flute_count,
+                    "flute_fillet_ratio": fillet,
+                    "top_radius_ratio": top_ratio,
+                    "entasis": True,
+                    "unit": "drum",
+                    "construction": "ashlar stack",
+                    "course": int(course),
+                })
+            elif len(members) > 1:
+                parameters.update({
+                    "unit": "profile_course",
+                    "construction": "ashlar stack",
+                    "course": int(course),
+                })
+            scene.add_block(
+                np.asarray(position), block_type="MESH",
+                color=BASE_COLOR if part.element.startswith("base") or part.element == "capital_abacus" else COLUMN_COLOR,
+                parameters=parameters, dimensions=np.asarray(dimensions),
+            )
+    return podium_top + base_height + shaft_height + capital_height
 
 def _add_human_access_elements(
     scene: Scene,
@@ -1398,170 +1476,10 @@ def _add_entablature_layers(
     depth_multiplier: float = 1.0,
     side_overhang_multiplier: float = 1.0,
 ) -> TempleEnvelope:
-    span_x = max(0.1, x_max - x_min)
-    span_z = max(0.1, z_max - z_min)
-
-    column_total_height = max(0.1, column_top_y - podium_top_y)
-    entablature_height = max(0.8, column_total_height * order.entablature_ratio)
-    architrave_h = entablature_height * 0.40
-    frieze_h = entablature_height * 0.35
-    cornice_h = entablature_height - architrave_h - frieze_h
-
-    depth_scale = _clamp(depth_multiplier, 0.65, 1.8)
-    side_scale = _clamp(side_overhang_multiplier, 0.65, 1.8)
-    architrave_d = member_width * 0.92 * depth_scale
-    frieze_d = member_width * 1.05 * depth_scale
-    cornice_d = member_width * (1.28 if order.name == "Doric" else 1.24) * depth_scale
-    architrave_side = member_width * 0.92 * side_scale
-    frieze_side = member_width * 1.05 * side_scale
-    cornice_side = member_width * (1.28 if order.name == "Doric" else 1.24) * side_scale
-
-    current_base = column_top_y + STACK_EPSILON
-
-    layers = [
-        ("architrave", architrave_h, architrave_d, architrave_side, ARCHITRAVE_COLOR),
-        (
-            "frieze",
-            frieze_h,
-            frieze_d,
-            frieze_side,
-            DORIC_FRIEZE_COLOR if order.name == "Doric" else IONIC_FRIEZE_COLOR,
-        ),
-        ("cornice", cornice_h, cornice_d, cornice_side, CORNICE_COLOR),
-    ]
-
-    for layer_name, layer_h, layer_d, layer_side, color in layers:
-        layer_center_y = _center_y(current_base, layer_h)
-
-        front_z = z_max - layer_d / 2.0
-        _add_cube(
-            scene,
-            (x_min + x_max) / 2.0,
-            layer_center_y,
-            front_z,
-            np.array([span_x + (2.0 * layer_side), layer_h, layer_d]),
-            color,
-            parameters={"order": order.name, "element": layer_name, "face": "front"},
-        )
-
-        if apply_symmetry:
-            back_z = z_min + layer_d / 2.0
-            _add_cube(
-                scene,
-                (x_min + x_max) / 2.0,
-                layer_center_y,
-                back_z,
-                np.array([span_x + (2.0 * layer_side), layer_h, layer_d]),
-                color,
-                parameters={"order": order.name, "element": layer_name, "face": "back"},
-            )
-
-            side_span = span_z - (2.0 * layer_d)
-            if side_span > 0.05:
-                left_x = x_min - layer_side / 2.0
-                right_x = x_max + layer_side / 2.0
-                _add_cube(
-                    scene,
-                    left_x,
-                    layer_center_y,
-                    (z_min + z_max) / 2.0,
-                    np.array([layer_side, layer_h, side_span]),
-                    color,
-                    parameters={"order": order.name, "element": layer_name, "face": "left"},
-                )
-                _add_cube(
-                    scene,
-                    right_x,
-                    layer_center_y,
-                    (z_min + z_max) / 2.0,
-                    np.array([layer_side, layer_h, side_span]),
-                    color,
-                    parameters={"order": order.name, "element": layer_name, "face": "right"},
-                )
-
-        if layer_name == "frieze":
-            if order.name == "Doric":
-                triglyph_depth = max(0.08, member_width * 0.24)
-                triglyph_width = max(0.16, member_width * 0.34)
-                triglyph_height = layer_h * 0.84
-                triglyph_center_y = current_base + layer_h * 0.55
-                positions = list(front_column_centers)
-                positions.extend((a + b) / 2.0 for a, b in zip(front_column_centers[:-1], front_column_centers[1:]))
-                positions.extend([x_min + triglyph_width / 2.0, x_max - triglyph_width / 2.0])
-
-                for x_pos in sorted({round(pos, 4) for pos in positions}):
-                    _add_cube(
-                        scene,
-                        float(x_pos),
-                        triglyph_center_y,
-                        z_max + triglyph_depth / 2.0,
-                        np.array([triglyph_width, triglyph_height, triglyph_depth]),
-                        DORIC_TRIGLYPH_COLOR,
-                        parameters={"order": order.name, "element": "triglyph", "face": "front"},
-                    )
-                    if apply_symmetry:
-                        _add_cube(
-                            scene,
-                            float(x_pos),
-                            triglyph_center_y,
-                            z_min - triglyph_depth / 2.0,
-                            np.array([triglyph_width, triglyph_height, triglyph_depth]),
-                            DORIC_TRIGLYPH_COLOR,
-                            parameters={"order": order.name, "element": "triglyph", "face": "back"},
-                        )
-            else:
-                relief_h = layer_h * 0.32
-                relief_d = max(0.08, member_width * 0.16)
-                relief_y = current_base + layer_h * 0.58
-                _add_cube(
-                    scene,
-                    (x_min + x_max) / 2.0,
-                    relief_y,
-                    z_max + relief_d / 2.0,
-                    np.array([span_x * 0.94, relief_h, relief_d]),
-                    IONIC_RELIEF_COLOR,
-                    parameters={"order": order.name, "element": "frieze_relief", "face": "front"},
-                )
-                if apply_symmetry:
-                    _add_cube(
-                        scene,
-                        (x_min + x_max) / 2.0,
-                        relief_y,
-                        z_min - relief_d / 2.0,
-                        np.array([span_x * 0.94, relief_h, relief_d]),
-                        IONIC_RELIEF_COLOR,
-                        parameters={"order": order.name, "element": "frieze_relief", "face": "back"},
-                    )
-                    if side_span > 0.05:
-                        _add_cube(
-                            scene,
-                            x_min - relief_d / 2.0,
-                            relief_y,
-                            (z_min + z_max) / 2.0,
-                            np.array([relief_d, relief_h, side_span * 0.94]),
-                            IONIC_RELIEF_COLOR,
-                            parameters={"order": order.name, "element": "frieze_relief", "face": "left"},
-                        )
-                        _add_cube(
-                            scene,
-                            x_max + relief_d / 2.0,
-                            relief_y,
-                            (z_min + z_max) / 2.0,
-                            np.array([relief_d, relief_h, side_span * 0.94]),
-                            IONIC_RELIEF_COLOR,
-                            parameters={"order": order.name, "element": "frieze_relief", "face": "right"},
-                        )
-
-        current_base += layer_h
-
-    return TempleEnvelope(
-        x_min=x_min - cornice_side,
-        x_max=x_max + cornice_side,
-        z_min=z_min,
-        z_max=z_max,
-        entablature_top_y=current_base,
-        cornice_depth=cornice_d,
-    )
+    from core.temple_masonry import entablature
+    return TempleEnvelope(**entablature(scene, order, column_top_y, podium_top_y,
+        x_min, x_max, z_min, z_max, member_width, front_column_centers,
+        apply_symmetry, depth_multiplier, side_overhang_multiplier))
 
 
 def _add_pediment(
@@ -1576,55 +1494,10 @@ def _add_pediment(
     order_name: str,
     face: str,
 ):
-    if width <= 0.0 or depth <= 0.0 or peak_height <= 0.0:
-        return
-
-    if use_wedges and width > 0.2:
-        wedge_dims = np.array([width / 2.0, peak_height, depth], dtype=float)
-        pediment_center_y = _center_y(base_y, peak_height)
-        _add_wedge(
-            scene,
-            center_x - (width / 4.0),
-            pediment_center_y,
-            center_z,
-            wedge_dims,
-            "+X",
-            PEDIMENT_COLOR,
-            parameters={"order": order_name, "element": "pediment", "face": face},
-        )
-        _add_wedge(
-            scene,
-            center_x + (width / 4.0),
-            pediment_center_y,
-            center_z,
-            wedge_dims,
-            "-X",
-            PEDIMENT_COLOR,
-            parameters={"order": order_name, "element": "pediment", "face": face},
-        )
-        return
-
-    layer_count = max(1, int(math.ceil(peak_height)))
-    for i in range(layer_count):
-        y_bottom = base_y + i
-        y_center = y_bottom + 0.5
-        normalized = (i + 0.5) / max(peak_height, 1e-6)
-        half_width = max(0.0, (width / 2.0) * (1.0 - normalized))
-        if half_width <= 0.0:
-            continue
-
-        x_start = int(math.floor(center_x - half_width))
-        x_end = int(math.ceil(center_x + half_width)) - 1
-        for x_coord in range(x_start, x_end + 1):
-            _add_cube(
-                scene,
-                float(x_coord) + 0.5,
-                y_center,
-                center_z,
-                np.array([1.0, 1.0, depth]),
-                PEDIMENT_COLOR,
-                parameters={"order": order_name, "element": "pediment", "face": face},
-            )
+    from core.temple_masonry import pediment
+    if width > 0 and depth > 0 and peak_height > 0:
+        pediment(scene, center_x, base_y, center_z, width, depth,
+                 peak_height, order_name, face)
 
 
 def generate_classical_building(
@@ -1670,34 +1543,50 @@ def generate_classical_building(
     order_name = _resolve_order(order_override, rng)
     order = ORDER_SPECS[order_name]
     preset = _resolve_preset(preset_override)
+    seed_influence = _seed_influence_profile(seed, rng)
 
     footprint_width = max(6, int(width))
     footprint_depth = max(6, int(depth))
 
     style_scale = _clamp(min(footprint_width, footprint_depth) / 10.0, 0.65, 1.15)
-    diameter = order.base_diameter * style_scale * preset.diameter_scale
+    diameter = (
+        order.base_diameter
+        * style_scale
+        * preset.diameter_scale
+        * seed_influence["diameter_scale"]
+    )
 
-    base_height = max(0.06, order.base_height_ratio * diameter)
+    base_height = 0.0 if order.name == "Doric" else max(0.06, order.base_height_ratio * diameter)
     base_width = order.base_width_ratio * diameter
     capital_height = max(0.10, order.capital_height_ratio * diameter)
     capital_width = order.capital_width_ratio * diameter
     member_width = max(base_width, capital_width)
 
-    clear_spacing = order.clear_spacing_ratio * diameter * preset.spacing_scale
-    edge_margin = order.edge_margin_ratio * diameter
+    clear_spacing = (
+        order.clear_spacing_ratio
+        * diameter
+        * preset.spacing_scale
+        * seed_influence["spacing_scale"]
+    )
+    edge_margin = order.edge_margin_ratio * diameter * seed_influence["edge_margin_scale"]
 
     min_footprint_required = _required_span(4, member_width, clear_spacing, edge_margin)
     min_available_span = float(min(footprint_width, footprint_depth))
     if min_footprint_required > min_available_span:
         scale = min_available_span / min_footprint_required
         diameter *= max(0.55, scale)
-        base_height = max(0.06, order.base_height_ratio * diameter)
+        base_height = 0.0 if order.name == "Doric" else max(0.06, order.base_height_ratio * diameter)
         base_width = order.base_width_ratio * diameter
         capital_height = max(0.10, order.capital_height_ratio * diameter)
         capital_width = order.capital_width_ratio * diameter
         member_width = max(base_width, capital_width)
-        clear_spacing = order.clear_spacing_ratio * diameter * preset.spacing_scale
-        edge_margin = order.edge_margin_ratio * diameter
+        clear_spacing = (
+            order.clear_spacing_ratio
+            * diameter
+            * preset.spacing_scale
+            * seed_influence["spacing_scale"]
+        )
+        edge_margin = order.edge_margin_ratio * diameter * seed_influence["edge_margin_scale"]
 
     front_columns = _resolve_column_count(
         span=float(footprint_width),
@@ -1744,10 +1633,31 @@ def generate_classical_building(
     z_min = back_z - member_width / 2.0
     z_max = front_z + member_width / 2.0
 
-    shaft_height = max(2.4, order.shaft_height_ratio * diameter * preset.shaft_height_scale)
+    shaft_height = max(
+        2.4,
+        order.shaft_height_ratio
+        * diameter
+        * preset.shaft_height_scale
+        * seed_influence["shaft_height_scale"],
+    )
     column_radius = diameter / 2.0
 
-    podium_height = max(0, int(round(podium_height_actual)))
+    effective_pediment_slope_multiplier = (
+        preset.pediment_slope_scale
+        * pediment_slope_multiplier
+        * seed_influence["pediment_slope_scale"]
+    )
+    effective_entablature_depth_multiplier = (
+        preset.entablature_depth_scale
+        * entablature_depth_multiplier
+        * seed_influence["entablature_depth_scale"]
+    )
+    effective_side_roof_overhang_multiplier = (
+        side_roof_overhang_multiplier
+        * seed_influence["side_roof_overhang_scale"]
+    )
+
+    podium_height = max(0., float(podium_height_actual))
     podium_top_y = float(podium_height if gen_flags["podium"] else 0.0)
 
     print(
@@ -1789,6 +1699,12 @@ def generate_classical_building(
         "doorway_clearances_valid": True,
     }
     apron_metrics: Dict[str, Any] = {"enabled": False, "blocks": 0, "thresholds": 0}
+    feature_shape_metrics: Dict[str, Any] = {
+        "arch_enabled": bool(gen_flags.get("add_arch_portal", False)),
+        "dome_enabled": bool(gen_flags.get("add_central_dome", False)),
+        "arch_count": 0,
+        "dome_count": 0,
+    }
     placement_invariants: Dict[str, Any] = {
         "ok": True,
         "centered_colonnade": True,
@@ -1806,14 +1722,9 @@ def generate_classical_building(
 
     try:
         if gen_flags["podium"] and podium_height > 0:
-            generate_podium(
-                scene,
-                width=footprint_width,
-                depth=footprint_depth,
-                height=podium_height,
-                clear_scene=False,
-                base_position=np.array([0.0, 0.0, 0.0]),
-            )
+            from core.temple_masonry import crepidoma
+            crepidoma(scene, footprint_width, footprint_depth, podium_height, order.name)
+
 
         highest_column_top = podium_top_y
         if gen_flags["columns"]:
@@ -1902,6 +1813,7 @@ def generate_classical_building(
             entablature_top_y=highest_column_top,
             cornice_depth=member_width,
         )
+        roof_peak_y = envelope.entablature_top_y
 
         if gen_flags["columns"] and gen_flags["entablature"]:
             envelope = _add_entablature_layers(
@@ -1916,26 +1828,33 @@ def generate_classical_building(
                 member_width=member_width,
                 front_column_centers=front_run,
                 apply_symmetry=gen_flags["apply_symmetry"],
-                depth_multiplier=preset.entablature_depth_scale * entablature_depth_multiplier,
-                side_overhang_multiplier=side_roof_overhang_multiplier,
+                depth_multiplier=effective_entablature_depth_multiplier,
+                side_overhang_multiplier=effective_side_roof_overhang_multiplier,
             )
+            roof_peak_y = envelope.entablature_top_y
+
+        if gen_flags["columns"] and gen_flags["entablature"] and gen_flags["apply_symmetry"]:
+            from core.temple_masonry import cella
+            cella(scene, left_x, right_x, back_z, front_z, podium_top_y,
+                  envelope.entablature_top_y, member_width, order.name)
 
         if gen_flags["columns"] and gen_flags["pediment"]:
             pediment_span_x = max(0.1, envelope.x_max - envelope.x_min)
             pediment_peak_h = _pediment_peak_height(
                 pediment_span_x,
                 order.pediment_rise_over_half_span,
-                preset.pediment_slope_scale * pediment_slope_multiplier,
+                effective_pediment_slope_multiplier,
             )
             pediment_depth = max(0.12, envelope.cornice_depth * 0.95)
             pediment_base_y = envelope.entablature_top_y
             center_x = (envelope.x_min + envelope.x_max) / 2.0
+            roof_peak_y = max(roof_peak_y, pediment_base_y + pediment_peak_h)
 
             _add_pediment(
                 scene,
                 center_x=center_x,
                 base_y=pediment_base_y,
-                center_z=envelope.z_max + pediment_depth / 2.0,
+                center_z=envelope.z_max - pediment_depth / 2.0,
                 width=pediment_span_x,
                 depth=pediment_depth,
                 peak_height=pediment_peak_h,
@@ -1949,7 +1868,7 @@ def generate_classical_building(
                     scene,
                     center_x=center_x,
                     base_y=pediment_base_y,
-                    center_z=envelope.z_min - pediment_depth / 2.0,
+                    center_z=envelope.z_min + pediment_depth / 2.0,
                     width=pediment_span_x,
                     depth=pediment_depth,
                     peak_height=pediment_peak_h,
@@ -1959,34 +1878,30 @@ def generate_classical_building(
                 )
 
                 if gen_flags["roof"]:
-                    roof_depth = max(0.1, envelope.z_max - envelope.z_min)
-                    slice_count = max(1, int(math.ceil(roof_depth)))
-                    slice_depth = roof_depth / slice_count
-                    for idx in range(slice_count):
-                        z_center = envelope.z_min + slice_depth * (idx + 0.5)
-                        _add_pediment(
-                            scene,
-                            center_x=center_x,
-                            base_y=pediment_base_y,
-                            center_z=z_center,
-                            width=pediment_span_x,
-                            depth=slice_depth,
-                            peak_height=pediment_peak_h,
-                            use_wedges=gen_flags["use_wedge_pediment"],
-                            order_name=order.name,
-                            face="roof",
-                        )
+                    from core.temple_masonry import roof
+                    roof_peak_y = roof(scene, center_x, pediment_base_y,
+                        envelope.z_min, envelope.z_max, pediment_span_x,
+                        pediment_peak_h, order.name, member_width * .10)
 
-                    ridge_h = max(0.10, envelope.cornice_depth * 0.20)
-                    _add_cube(
-                        scene,
-                        center_x,
-                        _center_y(pediment_base_y + pediment_peak_h, ridge_h),
-                        (envelope.z_min + envelope.z_max) / 2.0,
-                        np.array([pediment_span_x * 0.12, ridge_h, roof_depth]),
-                        ROOF_COLOR,
-                        parameters={"order": order.name, "element": "ridge"},
-                    )
+        if gen_flags.get("add_arch_portal", False) or gen_flags.get("add_central_dome", False):
+            # Temporarily disable overlap prevention for feature shapes as they often
+            # intersect with the complex roof/facade geometry in ways the manager rejects.
+            prev_overlap = scene.enable_strict_overlap_prevention
+            scene.enable_strict_overlap_prevention = False
+            try:
+                feature_shape_metrics = _add_optional_feature_shapes(
+                    scene,
+                    order_name=order.name,
+                    envelope=envelope,
+                    podium_top_y=podium_top_y,
+                    front_run=front_run,
+                    member_width=member_width,
+                    roof_peak_y=roof_peak_y,
+                    enable_arch_portal=bool(gen_flags.get("add_arch_portal", False)),
+                    enable_central_dome=bool(gen_flags.get("add_central_dome", False)),
+                )
+            finally:
+                scene.enable_strict_overlap_prevention = prev_overlap
 
         if gen_flags.get("human_access", True):
             access_metrics = _add_human_access_elements(
@@ -2053,6 +1968,23 @@ def generate_classical_building(
             "avg_column_radius": round(float(column_radius), 6),
             "avg_column_slenderness": round(float(shaft_height / max(1e-8, 2.0 * column_radius)), 6),
             "side_roof_overhang_multiplier": round(float(side_roof_overhang_multiplier), 6),
+            "side_roof_overhang_multiplier_effective": round(
+                float(effective_side_roof_overhang_multiplier), 6
+            ),
+            "seed_influence": {
+                "seed": None if seed is None else int(seed),
+                "diameter_scale": round(float(seed_influence["diameter_scale"]), 6),
+                "shaft_height_scale": round(float(seed_influence["shaft_height_scale"]), 6),
+                "spacing_scale": round(float(seed_influence["spacing_scale"]), 6),
+                "edge_margin_scale": round(float(seed_influence["edge_margin_scale"]), 6),
+                "pediment_slope_scale": round(float(seed_influence["pediment_slope_scale"]), 6),
+                "entablature_depth_scale": round(
+                    float(seed_influence["entablature_depth_scale"]), 6
+                ),
+                "side_roof_overhang_scale": round(
+                    float(seed_influence["side_roof_overhang_scale"]), 6
+                ),
+            },
             "human_access": {
                 "philosophy": "entry-centered circulation, multi-egress safety, proportional stairs",
                 "entrances": int(access_metrics["entrances"]),
@@ -2079,6 +2011,7 @@ def generate_classical_building(
                 },
             },
             "foundation_apron": apron_metrics,
+            "feature_shapes": feature_shape_metrics,
             "invariants": placement_invariants,
         }
 

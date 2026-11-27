@@ -1,0 +1,11 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 10,
+  "columns": 2,
+  "buildings": [
+    {"id": "norman-great-tower", "request": {"product": "norman-keep", "variant": "square", "detail": "concept", "seed": 73}},
+    {"id": "shell-keep-on-motte", "request": {"product": "norman-shell-keep", "detail": "concept", "seed": 73}},
+    {"id": "maya-temple-pyramid", "request": {"product": "mesoamerican-pyramid", "variant": "maya-temple", "detail": "concept", "seed": 73}},
+    {"id": "five-storey-pagoda", "request": {"product": "japanese-pagoda", "variant": "five-storey", "detail": "standard", "seed": 73}}
+  ]
+}

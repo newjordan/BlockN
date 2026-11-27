@@ -1,0 +1,9 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 10,
+  "columns": 2,
+  "buildings": [
+    {"id": "xieshan-hall", "request": {"product": "chinese-hall", "variant": "hip-and-gable", "detail": "concept", "seed": 73}},
+    {"id": "barrel-vimana", "request": {"product": "dravidian-vimana", "variant": "shala-vimana", "detail": "concept", "seed": 73}}
+  ]
+}

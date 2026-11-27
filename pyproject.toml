@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blockn"
+version = "0.4.0"
+description = "Deterministic semantic architecture primitives and block-model generation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24.0",
+  "trimesh>=4.0.0",
+]
+
+[project.optional-dependencies]
+gui = [
+  "PyQt5>=5.15.0",
+  "pyvista>=0.43.0",
+  "pyvistaqt>=0.11.0",
+  "vtk>=9.2.0",
+]
+config = ["python-dotenv>=1.0.0"]
+# Collada (.dae), 3MF and USD (.usda/.usdc) exports. FBX needs Blender on PATH.
+export = ["pycollada>=0.8", "lxml>=4.9", "usd-core>=24.0"]
+dev = ["pytest>=7.4.0"]
+
+[project.scripts]
+blockn = "cli:main"
+blockn-gui = "main:main"
+
+[tool.setuptools]
+py-modules = ["blockn", "cli", "config", "main"]
+
+[tool.setuptools.packages.find]
+include = ["core*", "gui*"]

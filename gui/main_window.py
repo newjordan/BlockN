@@ -9,18 +9,20 @@ from PyQt5.QtCore import QEasingCurve, QPropertyAnimation, QThread, Qt, QTimer, 
 from PyQt5.QtWidgets import (
     QDockWidget,
     QFileDialog,
+    QFrame,
     QGraphicsOpacityEffect,
     QMainWindow,
     QMessageBox,
+    QScrollArea,
     QStatusBar,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from core.generators.classical import generate_classical_building
 from core.geometry import optimize_blocks
-from core.io import export_meshes_to_glb, save_scene_to_json
+from core.architecture.io import export_mesh_artifact
+from core.io import save_scene_to_json
 from core.scene import ColorTuple, Scene
 from .panels import (
     ColorPalettePanel,
@@ -31,420 +33,13 @@ from .panels import (
 from .viewport import ViewportWidget
 
 
-MEMPHIS_SUNSET_STYLESHEET = """
-QMainWindow {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 #ffd07a,
-        stop: 0.20 #f39b63,
-        stop: 0.48 #e56f5c,
-        stop: 0.70 #5a5d89,
-        stop: 1 #2d4466
-    );
-    color: #fff4dc;
-}
-
-QWidget {
-    color: #fff4dc;
-    font-family: "Avenir Next", "Gill Sans MT", "Trebuchet MS", sans-serif;
-    font-size: 12px;
-}
-
-QDockWidget {
-    border: 2px solid rgba(255, 244, 220, 0.25);
-    border-radius: 12px;
-    margin-top: 22px;
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 rgba(20, 33, 50, 0.95),
-        stop: 0.28 rgba(26, 44, 67, 0.95),
-        stop: 0.29 rgba(37, 63, 86, 0.92),
-        stop: 0.33 rgba(24, 39, 57, 0.95),
-        stop: 0.62 rgba(19, 33, 51, 0.95),
-        stop: 0.63 rgba(45, 71, 91, 0.90),
-        stop: 0.67 rgba(21, 36, 54, 0.95),
-        stop: 1 rgba(16, 27, 41, 0.95)
-    );
-}
-
-QDockWidget::title {
-    text-align: left;
-    background: rgba(255, 129, 84, 0.88);
-    color: #171f30;
-    padding-left: 12px;
-    padding-right: 12px;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-    font-family: "Futura", "Avenir Next", "Gill Sans MT", sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 1px;
-}
-
-QDockWidget > QWidget {
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
-    border: 1px solid rgba(255, 244, 220, 0.16);
-}
-
-QDockWidget#GenerationDock > QWidget {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 0,
-        stop: 0 rgba(23, 38, 56, 0.95),
-        stop: 0.18 rgba(35, 55, 76, 0.93),
-        stop: 0.19 rgba(24, 39, 58, 0.95),
-        stop: 0.39 rgba(24, 39, 58, 0.95),
-        stop: 0.40 rgba(45, 67, 88, 0.92),
-        stop: 0.44 rgba(22, 37, 56, 0.95),
-        stop: 1 rgba(19, 32, 49, 0.95)
-    );
-}
-
-QDockWidget#SceneDock > QWidget {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 0, y2: 1,
-        stop: 0 rgba(20, 34, 52, 0.95),
-        stop: 0.22 rgba(28, 52, 74, 0.92),
-        stop: 0.23 rgba(21, 35, 53, 0.95),
-        stop: 0.46 rgba(21, 35, 53, 0.95),
-        stop: 0.47 rgba(42, 67, 88, 0.90),
-        stop: 0.52 rgba(22, 36, 54, 0.95),
-        stop: 1 rgba(17, 29, 45, 0.95)
-    );
-}
-
-QDockWidget#ColorDock > QWidget {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 rgba(23, 38, 56, 0.95),
-        stop: 0.30 rgba(22, 37, 56, 0.95),
-        stop: 0.31 rgba(45, 69, 91, 0.92),
-        stop: 0.36 rgba(22, 37, 56, 0.95),
-        stop: 0.68 rgba(20, 34, 52, 0.95),
-        stop: 0.69 rgba(40, 63, 83, 0.90),
-        stop: 0.73 rgba(21, 35, 53, 0.95),
-        stop: 1 rgba(17, 29, 44, 0.95)
-    );
-}
-
-QDockWidget#OutlinerDock > QWidget {
-    background: qlineargradient(
-        x1: 1, y1: 0, x2: 0, y2: 1,
-        stop: 0 rgba(22, 37, 55, 0.95),
-        stop: 0.24 rgba(32, 52, 73, 0.92),
-        stop: 0.25 rgba(21, 35, 53, 0.95),
-        stop: 0.50 rgba(21, 35, 53, 0.95),
-        stop: 0.51 rgba(43, 67, 88, 0.90),
-        stop: 0.56 rgba(21, 35, 53, 0.95),
-        stop: 1 rgba(16, 28, 43, 0.95)
-    );
-}
-
-QGroupBox {
-    background: rgba(16, 25, 40, 0.74);
-    border: 1px solid rgba(255, 244, 220, 0.30);
-    border-radius: 12px;
-    margin-top: 14px;
-    padding: 16px 10px 10px 10px;
-    font-family: "Futura", "Avenir Next", "Gill Sans MT", sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    color: #ffe7bc;
-}
-
-QGroupBox::title {
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    left: 12px;
-    top: 4px;
-    padding: 1px 8px;
-    background: rgba(47, 125, 128, 0.85);
-    border-radius: 8px;
-    color: #fff6e3;
-}
-
-QLabel#PanelSubtitle {
-    font-family: "Palatino Linotype", "Book Antiqua", serif;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: #ffd67f;
-    padding-bottom: 2px;
-}
-
-QPushButton {
-    border: 1px solid rgba(255, 244, 220, 0.55);
-    border-radius: 10px;
-    padding: 7px 10px;
-    background: rgba(215, 90, 67, 0.86);
-    color: #fff8e8;
-    font-family: "Futura", "Avenir Next", "Gill Sans MT", sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-QPushButton:hover {
-    background: rgba(242, 132, 76, 0.95);
-}
-
-QPushButton:pressed {
-    background: rgba(163, 62, 48, 0.95);
-}
-
-QPushButton#PrimaryActionButton {
-    min-height: 36px;
-    border-width: 2px;
-    border-color: rgba(255, 244, 220, 0.88);
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 0,
-        stop: 0 #f56b52,
-        stop: 1 #f2b053
-    );
-    color: #172034;
-    font-size: 13px;
-    font-weight: 700;
-}
-
-QPushButton#PrimaryActionButton:hover {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 0,
-        stop: 0 #ff8868,
-        stop: 1 #ffd177
-    );
-}
-
-QPushButton#SwatchButton {
-    min-width: 32px;
-    min-height: 32px;
-    max-width: 32px;
-    max-height: 32px;
-}
-
-QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget {
-    background: rgba(12, 21, 34, 0.80);
-    border: 1px solid rgba(255, 244, 220, 0.38);
-    border-radius: 8px;
-    padding: 5px 6px;
-    color: #fff6e5;
-    selection-background-color: rgba(255, 179, 92, 0.95);
-    selection-color: #1f2838;
-}
-
-QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QListWidget:focus {
-    border: 1px solid rgba(255, 196, 110, 0.92);
-    background: rgba(16, 28, 43, 0.94);
-}
-
-QComboBox::drop-down {
-    width: 22px;
-    border: 0;
-    border-left: 1px solid rgba(255, 244, 220, 0.30);
-    border-top-right-radius: 8px;
-    border-bottom-right-radius: 8px;
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 0, y2: 1,
-        stop: 0 rgba(47, 125, 128, 0.75),
-        stop: 1 rgba(28, 78, 90, 0.78)
-    );
-}
-
-QComboBox::down-arrow {
-    width: 0px;
-    height: 0px;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 7px solid rgba(255, 230, 173, 0.96);
-    margin-right: 3px;
-}
-
-QComboBox:on {
-    background: rgba(18, 30, 45, 0.96);
-}
-
-QComboBox QAbstractItemView {
-    background: rgba(14, 24, 38, 0.97);
-    border: 1px solid rgba(255, 209, 130, 0.55);
-    border-radius: 8px;
-    color: #fff6e5;
-    selection-background-color: rgba(246, 144, 83, 0.95);
-    selection-color: #1d2636;
-    padding: 4px;
-    outline: 0;
-}
-
-QSpinBox::up-button, QDoubleSpinBox::up-button {
-    subcontrol-origin: border;
-    subcontrol-position: top right;
-    width: 18px;
-    border-left: 1px solid rgba(255, 244, 220, 0.30);
-    border-bottom: 1px solid rgba(255, 244, 220, 0.20);
-    background: rgba(39, 92, 98, 0.72);
-}
-
-QSpinBox::down-button, QDoubleSpinBox::down-button {
-    subcontrol-origin: border;
-    subcontrol-position: bottom right;
-    width: 18px;
-    border-left: 1px solid rgba(255, 244, 220, 0.30);
-    background: rgba(33, 74, 90, 0.75);
-}
-
-QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
-    width: 0px;
-    height: 0px;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-bottom: 6px solid rgba(255, 230, 173, 0.96);
-}
-
-QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
-    width: 0px;
-    height: 0px;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 6px solid rgba(255, 230, 173, 0.96);
-}
-
-QListWidget::item {
-    padding: 5px 6px;
-    border-radius: 6px;
-}
-
-QListWidget::item:selected {
-    background: rgba(242, 160, 86, 0.92);
-    color: #152136;
-}
-
-QListWidget::item:hover {
-    background: rgba(64, 112, 124, 0.56);
-}
-
-QTabBar::tab {
-    background: rgba(18, 30, 46, 0.92);
-    color: #ffe8bf;
-    border: 1px solid rgba(255, 214, 148, 0.36);
-    border-bottom: 0;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    padding: 5px 10px;
-    margin-right: 4px;
-    font-family: "Futura", "Avenir Next", "Gill Sans MT", sans-serif;
-    font-size: 10px;
-    letter-spacing: 1px;
-}
-
-QTabBar::tab:selected {
-    background: rgba(245, 145, 84, 0.94);
-    color: #172034;
-    border-color: rgba(255, 230, 173, 0.92);
-}
-
-QTabBar::tab:hover:!selected {
-    background: rgba(40, 74, 97, 0.95);
-}
-
-QDockWidget::close-button, QDockWidget::float-button {
-    border: 1px solid rgba(255, 244, 220, 0.40);
-    border-radius: 6px;
-    background: rgba(24, 39, 57, 0.82);
-    padding: 1px;
-}
-
-QDockWidget::close-button:hover, QDockWidget::float-button:hover {
-    background: rgba(244, 140, 84, 0.92);
-}
-
-QScrollBar:vertical {
-    width: 12px;
-    background: rgba(9, 17, 30, 0.72);
-    margin: 2px;
-    border-radius: 6px;
-}
-
-QScrollBar::handle:vertical {
-    min-height: 24px;
-    border-radius: 6px;
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 rgba(70, 128, 132, 0.86),
-        stop: 1 rgba(241, 141, 88, 0.90)
-    );
-}
-
-QScrollBar:horizontal {
-    height: 12px;
-    background: rgba(9, 17, 30, 0.72);
-    margin: 2px;
-    border-radius: 6px;
-}
-
-QScrollBar::handle:horizontal {
-    min-width: 24px;
-    border-radius: 6px;
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 0,
-        stop: 0 rgba(70, 128, 132, 0.86),
-        stop: 1 rgba(241, 141, 88, 0.90)
-    );
-}
-
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-    border: none;
-    background: transparent;
-}
-
-QCheckBox {
-    spacing: 8px;
-}
-
-QCheckBox::indicator {
-    width: 14px;
-    height: 14px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 244, 220, 0.65);
-    background: rgba(10, 19, 31, 0.85);
-}
-
-QCheckBox::indicator:checked {
-    background: rgba(250, 180, 88, 0.98);
-}
-
-QCheckBox::indicator:hover {
-    border-color: rgba(255, 208, 135, 0.95);
-}
-
-QPushButton:disabled, QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled, QListWidget:disabled {
-    color: rgba(255, 240, 209, 0.50);
-    border-color: rgba(255, 244, 220, 0.22);
-    background: rgba(9, 16, 27, 0.62);
-}
-
-QStatusBar {
-    background: rgba(9, 16, 28, 0.90);
-    color: #ffe7bc;
-    border-top: 1px solid rgba(255, 244, 220, 0.25);
-}
-
-QStatusBar::item {
-    border: none;
-}
-
-QToolTip {
-    background: rgba(12, 22, 36, 0.95);
-    color: #fff2d2;
-    border: 1px solid rgba(255, 207, 126, 0.85);
-    padding: 4px 6px;
-}
-"""
+from .theme import PHOSPHOR_STYLESHEET
 
 
 class GenerationThread(QThread):
     """Runs generation in the background to keep UI responsive."""
 
-    generation_finished = pyqtSignal(object, str)
+    generation_finished = pyqtSignal(object, str, object)
 
     def __init__(self, params: Dict[str, Any], parent=None):
         super().__init__(parent)
@@ -472,35 +67,124 @@ class GenerationThread(QThread):
             height = int(self.params["height"])
             depth = int(self.params["depth"])
             seed = self.params["seed"]
+            age = float(self.params.get("age", 0.35))
 
-            generate_classical_building(
-                new_scene,
-                width=width,
-                depth=depth,
-                podium_height_actual=max(1, height // 3),
-                seed=seed,
-                flags={"foundation_apron": bool(self.params.get("classical_foundation_apron", False))},
-                order_override=self.params.get("classical_order", "Random"),
-                preset_override=self.params.get("classical_preset", "canonical"),
-                front_column_override=self.params.get("classical_front_columns"),
-                side_column_override=self.params.get("classical_side_columns"),
-                pediment_slope_multiplier=float(self.params.get("classical_pediment_slope", 1.0)),
-                entablature_depth_multiplier=float(
-                    self.params.get("classical_entablature_depth", 1.0)
-                ),
-                side_roof_overhang_multiplier=float(
-                    self.params.get("classical_side_roof_overhang", 1.0)
-                ),
-                wrap_min_podium_span_x_override=self.params.get("classical_wrap_min_front_span"),
-                wrap_min_podium_span_z_override=self.params.get("classical_wrap_min_side_span"),
-                wrap_front_coverage_ratio_override=self.params.get("classical_wrap_front_coverage"),
-                clear_scene=True,
-            )
+            product = self.params.get("classical_form", "classical-building")
+            if product != "classical-building":
+                from core.architecture import BuildRequest, build
+                from core.architecture.classical_forms import MASONRY_FORMS
+                from core.architecture.cathedral import PRODUCT as CATHEDRAL_PRODUCT
+                from core.architecture.marble_run import PRODUCT as MARBLE_PRODUCT
+                from core.architecture.timberwright import PRODUCT as TIMBER_PRODUCT
+                from core.architecture.settlement import PRODUCT_NAMES as SETTLEMENT_PRODUCTS
+                from core.architecture import historic
+                if product in SETTLEMENT_PRODUCTS:
+                    result = build(BuildRequest(
+                        product=product, width=width, depth=depth, seed=seed or 0,
+                        variant=self.params.get("settlement_variant") or "auto",
+                        detail=self.params.get("form_detail", "concept"),
+                        age=age,
+                    ))
+                    if result.quality.status == "fail":
+                        raise ValueError("; ".join(
+                            c.message for c in result.quality.checks if c.status == "fail"))
+                    plan = result.document.metadata["settlement"]
+                    self.generation_finished.emit(result.scene, "", {
+                        "order": plan["variant"],
+                        "variant_label": "plan",
+                        "typology": plan["typology"],
+                        "bays": None,
+                        "detail": result.document.request.detail,
+                        "quality": result.quality.status,
+                        "checks": dict(result.quality.counts),
+                    })
+                    return
+                found = historic.style_for(product)
+                from core.architecture.persian import PRODUCT as PERSIAN_PRODUCT
+                if product == TIMBER_PRODUCT:
+                    variant = self.params.get("timber_variant", "auto")
+                    design_params = self.params.get("timber_parameters", {})
+                elif product == PERSIAN_PRODUCT:
+                    variant = self.params.get("persian_variant", "auto")
+                    design_params = self.params.get("persian_parameters", {})
+                elif product == CATHEDRAL_PRODUCT:
+                    variant = self.params.get("cathedral_style", "high-gothic")
+                    design_params = self.params.get("cathedral_parameters", {})
+                else:
+                    variant = ("auto" if product in MASONRY_FORMS or product == MARBLE_PRODUCT
+                               else self.params.get("classical_order", "Random").lower())
+                    design_params = {}
+                result = build(BuildRequest(
+                    product=product, width=width, height=height, depth=depth, seed=seed or 0,
+                    variant=self.params.get("historic_style") or "auto",
+                    detail=self.params.get("form_detail", "standard"),
+                    bays=self.params.get("form_bays") if "bays" in found[1].controls else None,
+                    levels=self.params.get("form_levels") if "levels" in found[1].controls else None,
+                    age=age,
+                )) if found else build(BuildRequest(
+                    product=product, width=width, height=height, depth=depth,
+                    seed=seed or 0,
+                    style="timber" if product == TIMBER_PRODUCT else "persian" if product == PERSIAN_PRODUCT else "classical",
+                    variant=variant,
+                    detail=self.params.get("form_detail", "standard"),
+                    bays=self.params.get("form_bays", 5),
+                    levels=self.params.get("form_levels", 2) if product in {"classical-aqueduct", MARBLE_PRODUCT, TIMBER_PRODUCT} else None,
+                    parameters=design_params,
+                    age=age,
+                ))
+                if result.quality.status == "fail":
+                    raise ValueError("; ".join(c.message for c in result.quality.checks if c.status == "fail"))
+                rules = result.document.metadata.get("classical_rules") or {}
+                if product == CATHEDRAL_PRODUCT:
+                    rules = {"order": result.document.metadata["cathedral_rules"]["variant"],
+                             "typology": "Gothic cathedral", "bays": result.document.metadata["cathedral_rules"]["nave_bays"]}
+                if product == MARBLE_PRODUCT:
+                    rules = {"order": None, "typology": "marble-run", "bays": result.document.request.bays}
+                if product == TIMBER_PRODUCT:
+                    house = result.document.request
+                    rules = {"order": house.variant, "typology": f"Half-timbered house / {house.parameters['finish']}", "bays": house.bays}
+                if product == PERSIAN_PRODUCT:
+                    court = result.document.request
+                    rules = {"order": court.variant, "typology": f"Iwan court / {court.parameters['finish']}", "bays": None}
+                if found:
+                    rules = {"order": result.document.request.variant,
+                             "typology": result.document.metadata[f"{found[0].ARCHITECT.id}_rules"]["typology"],
+                             "bays": result.document.request.bays}
+                self.generation_finished.emit(result.scene, "", {
+                    "order": rules.get("order"),
+                    "variant_label": ("plan" if product in {TIMBER_PRODUCT, PERSIAN_PRODUCT} else
+                                      "style" if product == CATHEDRAL_PRODUCT or found else "order"),
+                    "typology": rules.get("typology"),
+                    "bays": rules.get("bays"),
+                    "detail": result.document.request.detail,
+                    "quality": result.quality.status,
+                    "checks": dict(result.quality.counts),
+                    "marble_run": (result.document.metadata or {}).get("marble_run"),
+                })
+                return
+
+            from core.architecture import BuildRequest, build
+            temple_parameters = {key: value for key, value in self.params.items()
+                if key.startswith("classical_") and key not in {"classical_form", "classical_order"}
+                and value is not None}
+            result = build(BuildRequest(product="classical-building", width=width,
+                height=height, depth=depth, seed=seed or 0,
+                variant=self.params.get("classical_order", "Random").lower(),
+                detail=self.params.get("form_detail", "standard"), parameters=temple_parameters,
+                age=age))
+            if result.quality.status != "pass":
+                raise ValueError("; ".join(c.message for c in result.quality.checks if c.status == "fail"))
+            metrics = result.document.metadata["design_metrics"]
+            self.generation_finished.emit(result.scene, "", {"order": metrics["order"],
+                "typology": "temple", "detail": result.document.request.detail,
+                "quality": result.quality.status, "checks": dict(result.quality.counts)})
+            return
+
         except Exception as exc:
             error_message = str(exc)
             new_scene = None
 
-        self.generation_finished.emit(new_scene, error_message)
+        self.generation_finished.emit(new_scene, error_message, None)
 
 
 class MainWindow(QMainWindow):
@@ -509,17 +193,19 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("LegoGen")
+        self.setWindowTitle("BlockN — Classical Workbench")
         self.setGeometry(100, 100, 1280, 820)
         self.setObjectName("MainWindow")
 
         self.scene = Scene()
         self._selected_color: Optional[ColorTuple] = None
         self._last_optimized_meshes: Optional[List[trimesh.Trimesh]] = None
+        self._last_optimize_report: Optional[Dict[str, Any]] = None
         self._generation_thread: Optional[GenerationThread] = None
         self._panel_animations: List[QPropertyAnimation] = []
         self._entry_animation_started = False
         self._dock_widgets: List[QDockWidget] = []
+        self._last_requested_seed: Optional[int] = None
 
         self._support_enabled = True
         self._strict_overlap_enabled = True
@@ -546,23 +232,35 @@ class MainWindow(QMainWindow):
 
         QTimer.singleShot(140, self._run_entry_animation)
 
+    def _create_scroll_host(self, panel: QWidget) -> QScrollArea:
+        scroll_area = QScrollArea(self)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setWidget(panel)
+        return scroll_area
+
     def _create_panels(self):
         self.generation_panel = GenerationPanel()
+        self.generation_panel.setMinimumWidth(360)
         self.generation_panel.generate_triggered.connect(self.handle_generate_request)
         self.generation_panel.support_toggled.connect(self.handle_support_toggled)
         self.generation_panel.overlap_toggled.connect(self.handle_overlap_toggled)
+        self.generation_panel.cathedral_cutaway.toggled.connect(self.update_viewport)
 
         generation_dock = QDockWidget("<> Generation //", self)
         generation_dock.setObjectName("GenerationDock")
         generation_dock.setFeatures(
-            QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
+            QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
         )
-        generation_dock.setWidget(self.generation_panel)
+        generation_dock.setMinimumWidth(390)
+        generation_dock.setWidget(self._create_scroll_host(self.generation_panel))
         generation_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, generation_dock)
         self._dock_widgets.append(generation_dock)
 
         self.scene_export_panel = SceneExportPanel()
+        self.scene_export_panel.setMinimumWidth(260)
         self.scene_export_panel.optimize_triggered.connect(self.handle_optimize_request)
         self.scene_export_panel.export_glb_triggered.connect(self.handle_export_glb_request)
         self.scene_export_panel.export_json_triggered.connect(self.handle_export_json_request)
@@ -571,41 +269,46 @@ class MainWindow(QMainWindow):
         scene_dock = QDockWidget("[] Scene / Export <>", self)
         scene_dock.setObjectName("SceneDock")
         scene_dock.setFeatures(
-            QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
+            QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
         )
-        scene_dock.setWidget(self.scene_export_panel)
+        scene_dock.setWidget(self._create_scroll_host(self.scene_export_panel))
         scene_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, scene_dock)
         self.splitDockWidget(generation_dock, scene_dock, Qt.Vertical)
         self._dock_widgets.append(scene_dock)
 
         self.color_palette_panel = ColorPalettePanel()
+        self.color_palette_panel.setMinimumWidth(260)
         self.color_palette_panel.color_selected.connect(self.handle_color_selected)
 
         color_dock = QDockWidget("++ Color Palette []", self)
         color_dock.setObjectName("ColorDock")
         color_dock.setFeatures(
-            QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
+            QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
         )
-        color_dock.setWidget(self.color_palette_panel)
+        color_dock.setWidget(self._create_scroll_host(self.color_palette_panel))
         color_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, color_dock)
         self.splitDockWidget(scene_dock, color_dock, Qt.Vertical)
         self._dock_widgets.append(color_dock)
 
         self.outliner_panel = OutlinerPanel()
+        self.outliner_panel.setMinimumWidth(240)
         outliner_dock = QDockWidget("// Outliner []", self)
         outliner_dock.setObjectName("OutlinerDock")
         outliner_dock.setFeatures(
-            QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
+            QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
         )
-        outliner_dock.setWidget(self.outliner_panel)
+        outliner_dock.setWidget(self._create_scroll_host(self.outliner_panel))
         outliner_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.addDockWidget(Qt.RightDockWidgetArea, outliner_dock)
         self._dock_widgets.append(outliner_dock)
 
+        self.resizeDocks([generation_dock], [420], Qt.Horizontal)
+        self.resizeDocks([generation_dock, scene_dock, color_dock], [520, 150, 150], Qt.Vertical)
+
     def _apply_visual_theme(self):
-        self.setStyleSheet(MEMPHIS_SUNSET_STYLESHEET)
+        self.setStyleSheet(PHOSPHOR_STYLESHEET)
         self.setDockNestingEnabled(True)
         self.setTabPosition(Qt.LeftDockWidgetArea, QTabWidget.North)
         self.setTabPosition(Qt.RightDockWidgetArea, QTabWidget.North)
@@ -714,12 +417,15 @@ class MainWindow(QMainWindow):
         classical_wrap_min_front_span: Optional[float],
         classical_wrap_min_side_span: Optional[float],
         classical_wrap_front_coverage: Optional[float],
+        classical_add_arch_portal: bool,
+        classical_add_dome_cap: bool,
     ):
         if self._generation_thread and self._generation_thread.isRunning():
             self.statusBar().showMessage("Generation already running.", 2000)
             return
 
         self._last_optimized_meshes = None
+        self._last_optimize_report = None
 
         params = {
             "width": width,
@@ -727,6 +433,18 @@ class MainWindow(QMainWindow):
             "depth": depth,
             "seed": seed,
             "classical_order": classical_order,
+            "classical_form": self.generation_panel.classical_form_combo.currentData(),
+            "form_bays": self.generation_panel.form_bays.value(),
+            "form_levels": self.generation_panel.form_levels.value(),
+            "form_detail": self.generation_panel.form_detail.currentText(),
+            "cathedral_style": self.generation_panel.cathedral_style.currentData(),
+            "cathedral_parameters": self.generation_panel.cathedral_parameters(),
+            "historic_style": self.generation_panel.historic_style.currentData(),
+            "timber_variant": self.generation_panel.timber_variant.currentData(),
+            "timber_parameters": self.generation_panel.timber_parameters(),
+            "persian_variant": self.generation_panel.persian_variant.currentData(),
+            "persian_parameters": self.generation_panel.persian_parameters(),
+            "settlement_variant": self.generation_panel.settlement_variant.currentData(),
             "classical_preset": classical_preset,
             "classical_front_columns": classical_front_columns,
             "classical_side_columns": classical_side_columns,
@@ -737,9 +455,18 @@ class MainWindow(QMainWindow):
             "classical_wrap_min_front_span": classical_wrap_min_front_span,
             "classical_wrap_min_side_span": classical_wrap_min_side_span,
             "classical_wrap_front_coverage": classical_wrap_front_coverage,
+            "classical_add_arch_portal": classical_add_arch_portal,
+            "classical_add_dome_cap": classical_add_dome_cap,
+            "age": float(self.generation_panel.age_spinbox.value()),
             "support_enabled": self._support_enabled,
             "strict_overlap": self._strict_overlap_enabled,
         }
+        self._last_requested_seed = seed
+        self.generation_panel.set_generation_pending(
+            seed=seed,
+            order_hint=classical_order,
+            preset=classical_preset,
+        )
 
         self._set_generation_controls_enabled(False)
 
@@ -753,11 +480,18 @@ class MainWindow(QMainWindow):
                 f"Generating Classical: order={classical_order} preset={classical_preset} "
                 f"size={width}x{height}x{depth} (seed={seed})"
                 f" apron={'on' if classical_foundation_apron else 'off'}"
+                f" arch={'on' if classical_add_arch_portal else 'off'}"
+                f" dome={'on' if classical_add_dome_cap else 'off'}"
             ),
             3500,
         )
 
-    def handle_generation_finished(self, new_scene: Optional[Scene], error_message: str):
+    def handle_generation_finished(
+        self,
+        new_scene: Optional[Scene],
+        error_message: str,
+        build_metadata: Optional[Dict[str, Any]] = None,
+    ):
         if error_message or new_scene is None:
             self.statusBar().showMessage(f"Generation failed: {error_message}", 5000)
             return
@@ -768,17 +502,53 @@ class MainWindow(QMainWindow):
         self.outliner_panel.update_list(self.scene.blocks)
         metrics = getattr(self.scene, "last_classical_metrics", None)
         if isinstance(metrics, dict):
+            self.generation_panel.set_generation_metadata(
+                seed=self._last_requested_seed,
+                order=metrics.get("order"),
+                preset=metrics.get("preset"),
+                front_columns=metrics.get("front_columns"),
+                side_columns=metrics.get("side_columns"),
+            )
             self.statusBar().showMessage(
                 (
                     "Generation complete:"
                     f" {len(self.scene.blocks)} blocks | order={metrics.get('order')}"
                     f" preset={metrics.get('preset')}"
                     f" columns={metrics.get('front_columns')}x{metrics.get('side_columns')}"
+                    f" arch={metrics.get('feature_shapes', {}).get('arch_count', 0)}"
+                    f" dome={metrics.get('feature_shapes', {}).get('dome_count', 0)}"
                 ),
                 4500,
             )
+        elif isinstance(build_metadata, dict):
+            self.generation_panel.set_typology_metadata(self._last_requested_seed, build_metadata)
+            tally = " ".join(
+                f"{name}={count}" for name, count in sorted((build_metadata.get("checks") or {}).items())
+            )
+            self.statusBar().showMessage(
+                (
+                    f"Generation complete: {len(self.scene.blocks)} blocks"
+                    f" | typology={build_metadata.get('typology') or 'n/a'}"
+                    f" {build_metadata.get('variant_label', 'order')}={build_metadata.get('order') or 'masonry (no order)'}"
+                    + (f" bays={build_metadata.get('bays')}" if build_metadata.get('bays') is not None else "")
+                    + f" detail={build_metadata.get('detail')}"
+                    f" quality={build_metadata.get('quality')} ({tally})"
+                ),
+                4500,
+            )
+            ride = build_metadata.get("marble_run") or (getattr(self.scene, "generation_metadata", {}) or {}).get("marble_run")
+            if ride:
+                self.viewport.start_marble_run(ride)
+                self.statusBar().showMessage(
+                    f"Marble run looping {ride.get('length', 0):.1f} units of canal. Chase camera is live.",
+                    5000,
+                )
         else:
-            self.statusBar().showMessage(f"Generation complete: {len(self.scene.blocks)} blocks.", 3000)
+            self.generation_panel.set_generation_metadata(
+                seed=self._last_requested_seed, order=None, preset=None,
+                front_columns=None, side_columns=None,
+            )
+            self.statusBar().showMessage(f"Generation complete: {len(self.scene.blocks)} blocks; quality passed.", 3000)
 
     def _on_generation_thread_finished(self):
         self._generation_thread = None
@@ -790,6 +560,12 @@ class MainWindow(QMainWindow):
 
     def update_viewport(self):
         blocks = self.scene.blocks if self.scene else []
+        if self.generation_panel.cathedral_cutaway.isChecked():
+            removable = {"nave_roof", "aisle_roof", "transept_roof", "apse_roof", "roof_seam", "ridge", "glazing"}
+            opened = {"castle", "egyptian", "mesoamerican", "pagoda", "chinese", "dravidian", "stave"}
+            blocks = [b for b in blocks if not (
+                (b.parameters.get("architect") == "cathedral" and b.parameters.get("component_role") in removable)
+                or (b.parameters.get("architect") in opened and b.parameters.get("kind") == "roof"))]
         self.viewport.display_meshes(blocks)
 
     def handle_optimize_request(self):
@@ -798,7 +574,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            unioned_meshes = optimize_blocks(self.scene.blocks)
+            unioned_meshes, optimize_report = optimize_blocks(self.scene.blocks, return_report=True)
         except Exception as exc:
             QMessageBox.critical(self, "Optimization Error", str(exc))
             self.statusBar().showMessage(f"Optimization failed: {exc}", 5000)
@@ -809,8 +585,23 @@ class MainWindow(QMainWindow):
             return
 
         self._last_optimized_meshes = unioned_meshes
+        self._last_optimize_report = optimize_report
         self.viewport.display_optimized_result(unioned_meshes)
-        self.statusBar().showMessage(f"Optimization complete: {len(unioned_meshes)} meshes.", 3000)
+        backend_status = optimize_report.get("backend_status", {}) if isinstance(optimize_report, dict) else {}
+        backend_engines = backend_status.get("engines", [])
+        backend_text = ",".join(backend_engines) if backend_engines else "none"
+        attempted = int(optimize_report.get("groups_union_attempted", 0))
+        succeeded = int(optimize_report.get("groups_union_succeeded", 0))
+        fallback = int(optimize_report.get("groups_fallback", 0))
+        fallback_reasons = optimize_report.get("fallback_reasons", {})
+        fallback_text = f" reasons={fallback_reasons}" if fallback else ""
+        self.statusBar().showMessage(
+            (
+                f"Optimization complete: {len(unioned_meshes)} meshes | backend={backend_text} "
+                f"| union={succeeded}/{attempted} | fallback_groups={fallback}{fallback_text}"
+            ),
+            5000 if fallback else 3500,
+        )
 
     def _get_meshes_for_export(self) -> List[trimesh.Trimesh]:
         if self._last_optimized_meshes:
@@ -835,7 +626,10 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            export_meshes_to_glb(meshes, file_name)
+            if not file_name.lower().endswith(".glb"):
+                file_name += ".glb"
+            source = trimesh.Scene(meshes) if self._last_optimized_meshes else self.scene
+            export_mesh_artifact(source, file_name, glb_materials=self.scene_export_panel.glb_materials.isChecked())
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
             self.statusBar().showMessage(f"GLB export failed: {exc}", 5000)
