@@ -97,7 +97,7 @@ def _request_from_args(args: argparse.Namespace) -> BuildRequest:
         height=args.height,
         depth=args.depth,
         style=args.style,
-        detail=args.detail,
+        detail=args.detail or "standard",
         variant=args.variant,
         bays=args.bays,
         levels=args.levels,
@@ -106,6 +106,13 @@ def _request_from_args(args: argparse.Namespace) -> BuildRequest:
     )
     if getattr(args, "age", None) is not None:
         request.age = args.age
+    if args.randomize:
+        from core.architecture.historic import roll_request
+        sampled = roll_request(request.product, request.seed, variant=args.variant, detail=args.detail)
+        for name in ("width", "height", "depth", "bays", "levels"):
+            if getattr(request, name) is None:
+                setattr(request, name, getattr(sampled, name))
+        request.variant, request.detail = sampled.variant, sampled.detail
     if getattr(args, "profile", None):
         text = args.profile.strip()
         request.profile = json.loads(text) if text.startswith("{") else text
@@ -589,7 +596,8 @@ def _add_request_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--age", type=float, default=None, help="Surface age from 0 (new) to 1 (centuries); default 0.35")
     parser.add_argument("--style", choices=("contemporary", "classical", "industrial", "timber"), default="contemporary")
-    parser.add_argument("--detail", choices=("concept", "standard", "presentation"), default="standard")
+    parser.add_argument("--detail", choices=("concept", "standard", "presentation"))
+    parser.add_argument("--randomize", action="store_true", help="Reroll the historic form's unset controls using --seed")
     parser.add_argument("--variant", default="auto", help="Product-specific variant")
     parser.add_argument("--openings", default="auto", help="Product-specific opening mode")
     parser.add_argument("--bays", type=int)
@@ -608,7 +616,7 @@ def _handle_agent(args: argparse.Namespace) -> int:
             print(json.dumps({
                 "schema_version": "blockn.agent/v1",
                 "recipe_schema": SCHEMA,
-                "commands": ["craft", "agent schema", "agent series", "agent build"],
+                "commands": ["craft", "roll", "sonnet", "agent schema", "agent series", "agent build"],
                 "limits": {"buildings": 24, "parts_per_building": 8, "placements": 30000},
                 "example": {"schema_version": SCHEMA, "buildings": [{
                     "id": "rotunda", "request": {"product": "classical-rotunda", "variant": "corinthian"},
@@ -620,8 +628,13 @@ def _handle_agent(args: argparse.Namespace) -> int:
             }, indent=2))
             return 0
         if args.agent_command == "series":
-            products = args.products.split(",") if args.products else DEFAULT_PRODUCTS
-            recipe = series_recipe(args.count, args.seed, products, kitbash=args.kitbash)
+            products = [p.strip() for p in args.products.split(",")] if args.products else DEFAULT_PRODUCTS
+            if not args.recipe_only and args.output is None:
+                raise ValueError("agent series requires --output unless --recipe-only is set")
+            recipe = series_recipe(args.count, args.seed, products, kitbash=args.kitbash, detail=args.detail)
+            if args.recipe_only:
+                print(json.dumps(recipe, indent=2))
+                return 0
         else:
             recipe = json.load(sys.stdin) if str(args.recipe) == "-" else json.loads(args.recipe.read_text())
         with redirect_stdout(io.StringIO()):
@@ -631,6 +644,23 @@ def _handle_agent(args: argparse.Namespace) -> int:
     except (ValueError, OSError, ArchitectureCompileError) as exc:
         print(json.dumps({"schema_version": "blockn.agent/v1", "status": "error", "error": str(exc)}))
         return 1 if isinstance(exc, BatchQualityError) else 2
+
+
+def _handle_sonnet(args: argparse.Namespace) -> int:
+    from core.architecture import sonnet
+    hold = {key: str(value) for key, value in (args.hold or ())}
+    if args.describe:
+        print(json.dumps(sonnet.describe(args.product, variant=args.variant, hold=hold), indent=2))
+        return 0
+    recipe = sonnet.recipe(args.product, args.count, args.seed, variant=args.variant, detail=args.detail, hold=hold)
+    if args.output is None:
+        print(json.dumps(recipe, indent=2))
+        return 0
+    from core.architecture.agent import export_recipe
+    with redirect_stdout(io.StringIO()):
+        result = export_recipe(recipe, args.output, args.format or ("glb",), glb_materials=args.glb_materials)
+    print(json.dumps(result, indent=2))
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -654,6 +684,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     make = sub.add_parser("make", aliases=["primitive"], help="Produce an architecture primitive or assembly")
     _add_make_arguments(make)
+    roll = sub.add_parser("roll", help="Print a seeded historic build request as JSON without building it")
+    roll.add_argument("product")
+    roll.add_argument("--seed", type=int, default=0)
+    roll.add_argument("--variant", help="Keep a particular variant while rerolling other controls")
+    roll.add_argument("--detail", choices=("concept", "standard", "presentation"))
 
     build = sub.add_parser("build", help="Build a request JSON or recompile an architecture document")
     build.add_argument("request", type=Path)
@@ -692,12 +727,27 @@ def build_parser() -> argparse.ArgumentParser:
     series.add_argument("--kitbash", action="store_true", help="Assemble each building with a fitted podium and approach stair")
     series.add_argument("--seed", type=int, default=0)
     series.add_argument("--products", help="Comma-separated catalog products")
+    series.add_argument("--detail", choices=("concept", "standard", "presentation"), help="Keep this detail grade throughout the series")
+    series.add_argument("--recipe-only", action="store_true", help="Print the selected requests instead of exporting a batch")
     recipe = agent_sub.add_parser("build", help="Kitbash a JSON recipe; use - for stdin")
     recipe.add_argument("recipe", type=Path)
     for command in (series, recipe):
         _add_glb_material_option(command)
-        command.add_argument("--output", type=Path, required=True, help="New output directory (existing outputs are preserved)")
+        command.add_argument("--output", type=Path, required=command is recipe, help="New output directory (existing outputs are preserved)")
         command.add_argument("--format", action=_AppendFormats, help="Mesh formats, repeatable or comma-separated (default: glb)")
+
+    sonnet = sub.add_parser("sonnet", help="Deal variations on one historic form, no verse repeated")
+    sonnet.add_argument("product")
+    sonnet.add_argument("--count", type=int, default=8, help="How many variations to deal (default 8)")
+    sonnet.add_argument("--seed", type=int, default=0, help="First seed; later variations take the seeds after it")
+    sonnet.add_argument("--variant", help="Keep one variant throughout")
+    sonnet.add_argument("--detail", choices=("concept", "standard", "presentation"))
+    sonnet.add_argument("--hold", action="append", type=_parse_parameter, metavar="LINE=ANSWER",
+                        help="Pin one line of the form for the whole set; repeatable")
+    sonnet.add_argument("--describe", action="store_true", help="Print the form's lines and how many verses it has")
+    _add_glb_material_option(sonnet)
+    sonnet.add_argument("--output", type=Path, help="Build the set into this new directory instead of printing the recipe")
+    sonnet.add_argument("--format", action=_AppendFormats, help="Mesh formats, repeatable or comma-separated (default: glb)")
 
     gen = sub.add_parser("generate", help="Generate a classical scene (legacy-compatible)")
     gen.add_argument("--width", type=int, default=5, help="X dimension")
@@ -740,6 +790,12 @@ def main(argv: list[str] | None = None) -> int:
             return _handle_architects(args)
         if args.command in {"make", "primitive"}:
             return _handle_make(args)
+        if args.command == "roll":
+            from core.architecture.historic import roll_request
+            print(json.dumps(roll_request(args.product, args.seed, variant=args.variant, detail=args.detail).to_dict(), indent=2))
+            return 0
+        if args.command == "sonnet":
+            return _handle_sonnet(args)
         if args.command == "build":
             return _handle_build(args)
         if args.command == "inspect":

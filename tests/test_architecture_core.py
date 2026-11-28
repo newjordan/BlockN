@@ -18,7 +18,7 @@ from core.scene import Scene
 class TestArchitecturePipeline(unittest.TestCase):
     def test_every_catalog_product_compiles_and_passes_quality(self):
         products = list_products()
-        self.assertEqual(len(products), 47)
+        self.assertEqual(len(products), 67)
         self.assertGreaterEqual(len(list_architects()), 8)
 
         for descriptor in products:

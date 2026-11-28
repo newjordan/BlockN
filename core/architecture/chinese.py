@@ -47,7 +47,7 @@ FORMS = {form.name: form for form in (
                     "roof_tile", "main_ridge", "hip_ridge", "chiwen"}),
          {"bays": 7},
          rules={"bays": [3, 9], "bays_meaning": "across the front, and always odd",
-                "column": "an eave column stands no higher than its bay is wide",
+                "bays_step": 2, "column": "an eave column stands no higher than its bay is wide",
                 "roof": "slope steepens toward the ridge; corners shoot out three doukou and up four"}),
     Form("chinese-palace-hall", "Double-eave hall: a lower eave roof around a clerestory wall, an upper roof over it",
          (54, 22, 27), ("double-hip-roof", "double-hip-and-gable"),
@@ -55,7 +55,7 @@ FORMS = {form.name: form for form in (
                     "roof_tile", "surround_ridge", "upper_wall", "main_ridge", "hip_ridge", "chiwen"}),
          {"bays": 9},
          rules={"bays": [5, 9], "bays_meaning": "across the front, and always odd",
-                "column": "an eave column stands no higher than its bay is wide",
+                "bays_step": 2, "column": "an eave column stands no higher than its bay is wide",
                 "eaves": "the lower eave springs from the eave columns, the upper from the inner columns"}),
 )}
 VERMILION = (158, 34, 28, 255)
@@ -790,11 +790,15 @@ def build_document(request):
 
 
 def random_controls(product, rng):
-    """A hall's height suits its plan, so a random hall is the default one grown or shrunk whole."""
-    width, height, depth = FORMS[product].defaults
+    """Keep the plan proportions and sample a centered odd bay grid."""
+    form = FORMS[product]
+    width, height, depth = form.defaults
     scale = rng.uniform(.85, 1.2)
+    bays = rng.choice((7, 9) if product == "chinese-palace-hall" else (5, 7))
+    # A wider middle bay raises the eave columns and the required plot height.
+    height *= 1 + .055 * (form.controls["bays"] - bays)
     return {"width": round(width * scale), "height": round(height * scale), "depth": round(depth * scale),
-            "bays": FORMS[product].controls.get("bays"), "levels": None,
+            "bays": bays,
             "detail": rng.choice(("concept", "standard"))}
 
 

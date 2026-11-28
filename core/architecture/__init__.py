@@ -17,6 +17,8 @@ from .schema import (
     BuildRequest,
     Placement,
 )
+from .historic import roll_request
+from . import sonnet
 from .service import (
     build,
     describe_product,
@@ -38,6 +40,8 @@ __all__ = [
     "Placement",
     "build",
     "rebuild",
+    "roll_request",
+    "sonnet",
     "list_architects",
     "load_document",
     "list_products",

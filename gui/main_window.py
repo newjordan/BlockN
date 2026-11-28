@@ -562,10 +562,13 @@ class MainWindow(QMainWindow):
         blocks = self.scene.blocks if self.scene else []
         if self.generation_panel.cathedral_cutaway.isChecked():
             removable = {"nave_roof", "aisle_roof", "transept_roof", "apse_roof", "roof_seam", "ridge", "glazing"}
-            opened = {"castle", "egyptian", "mesoamerican", "pagoda", "chinese", "dravidian", "stave"}
+            opened = {"castle", "egyptian", "mesoamerican", "pagoda", "chinese", "dravidian", "stave", "sahelian",
+                      "inka", "swahili", "minangkabau", "chacoan", "muscovite", "tibetan", "zimbabwe"}
             blocks = [b for b in blocks if not (
                 (b.parameters.get("architect") == "cathedral" and b.parameters.get("component_role") in removable)
-                or (b.parameters.get("architect") in opened and b.parameters.get("kind") == "roof"))]
+                or (b.parameters.get("architect") in opened and b.parameters.get("kind") == "roof")
+                or (b.parameters.get("architect") == "khmer" and
+                    b.parameters.get("component_role") in {"gallery_corbel", "gallery_ridge"}))]
         self.viewport.display_meshes(blocks)
 
     def handle_optimize_request(self):

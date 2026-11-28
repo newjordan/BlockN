@@ -11,6 +11,7 @@ skins; the rubble core between them is not modelled.
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from dataclasses import dataclass, field
 import math
 import random
@@ -21,7 +22,7 @@ import trimesh
 from core.architectural_geometry import extrude_profile, mesh_parameters
 from .masonry import (MAX_COURSE, MAX_STRETCHER, MIN_STONE, course_target, iter_ashlar_box,
                       iter_masonry_solid, stretcher_target, _divisions, _merge_marks)
-from .schema import BuildDocument, Placement, canonical_product_name
+from .schema import BuildDocument, BuildRequest, Placement, canonical_product_name
 
 TAU = math.tau
 DETAILS = ("concept", "standard", "presentation")
@@ -42,15 +43,50 @@ class Form:
     rules: dict = field(default_factory=dict)
 
 
+# Architect modules in catalog order. A new tradition is one module and one name here.
+ARCHITECTS = ("castle", "egyptian", "mesoamerican", "pagoda", "chinese", "dravidian", "stave", "sahelian", "inka",
+              "khmer", "swahili", "minangkabau", "chacoan", "brutalist", "byzantine",
+              "mesopotamian", "stupa", "muscovite", "zimbabwe", "lalibela", "artdeco", "geodesic", "tibetan",
+              "mughal")
+
+
 def styles():
     """Product name -> (architect module, form), in catalog order."""
-    from . import castle, chinese, dravidian, egyptian, mesoamerican, pagoda, stave
-    return {name: (module, form) for module in (castle, egyptian, mesoamerican, pagoda, chinese, dravidian, stave)
+    from importlib import import_module
+    modules = [import_module(f".{name}", __package__) for name in ARCHITECTS]
+    return {name: (module, form) for module in modules
             for name, form in module.FORMS.items()}
 
 
 def style_for(product):
     return styles().get(canonical_product_name(product))
+
+
+def roll_request(product, seed, *, variant=None, detail=None):
+    """Sample explicit controls with the same seed in the CLI, desktop, and agent API."""
+    found = style_for(product)
+    if found is None:
+        raise ValueError(f"{product} does not have a historic reroll sampler")
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise ValueError("seed must be an integer")
+    module, form = found
+    if variant not in (None, "auto", "random", *form.variants):
+        raise ValueError(f"{form.name} variant must be one of {', '.join(form.variants)}")
+    if detail is not None and detail not in DETAILS:
+        raise ValueError(f"detail must be one of {', '.join(DETAILS)}")
+    rng = random.Random(f"{form.name}:{seed}:controls")
+    controls = module.random_controls(form.name, rng)
+    selected = variant if variant in form.variants else controls.get("variant") or rng.choice(form.variants)
+    for name in ("bays", "levels"):
+        if name not in form.controls:
+            controls.pop(name, None)
+    for name, choices in form.rules.get("reroll_controls_by_variant", {}).get(selected, {}).items():
+        controls[name] = rng.choice(choices)
+    controls["variant"] = selected
+    controls["detail"] = detail or controls.get("detail") or rng.choice(DETAILS[:2])
+    for name in ("width", "height", "depth"):
+        controls[name] = round(controls[name])  # same whole-metre grid as the desktop
+    return BuildRequest(architect=module.ARCHITECT.id, style=module.STYLE, product=form.name, seed=seed, **controls)
 
 
 def list_products():
@@ -70,9 +106,10 @@ def descriptor(module, form):
             "architect_version": module.ARCHITECT.version, "description": form.description,
             "defaults": defaults, "variants": ["auto", "random", *form.variants],
             "detail_levels": list(DETAILS), "opening_modes": ["auto"],
+            "reroll": {"command": f"blockn roll {form.name}", "seeded": True},
             "parameters": sorted({"variation", *form.parameters}),
             "substances": sorted(vocabulary),
-            "rules": {"required_roles": sorted(form.required_roles), **form.rules, "variation": [0.0, 1.0],
+            "rules": {"required_roles": sorted(form.required_roles), **deepcopy(form.rules), "variation": [0.0, 1.0],
                       "scope": "architectural visualization and modular asset generation"}}
 
 

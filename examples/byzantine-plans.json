@@ -1,0 +1,11 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 6,
+  "columns": 2,
+  "buildings": [
+    {"id": "four-column", "request": {"product": "byzantine-church", "variant": "four-column", "width": 15, "height": 20, "depth": 23, "bays": 12, "detail": "concept", "seed": 73}},
+    {"id": "two-column", "request": {"product": "byzantine-church", "variant": "two-column", "width": 15, "height": 20, "depth": 23, "bays": 12, "detail": "concept", "seed": 73}},
+    {"id": "five-dome", "request": {"product": "byzantine-church", "variant": "five-dome", "width": 15, "height": 20, "depth": 23, "bays": 12, "detail": "concept", "seed": 73}},
+    {"id": "four-pier", "request": {"product": "byzantine-church", "variant": "four-pier", "width": 15, "height": 20, "depth": 23, "bays": 12, "detail": "concept", "seed": 73}}
+  ]
+}

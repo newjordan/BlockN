@@ -23,6 +23,26 @@ comma-separated catalog list to choose a different repertoire. The exact same
 request and architect version produce the same recipe and geometry. Save the
 emitted `recipe.json` to replay or edit individual buildings.
 
+Historic products use their own rule-specific sampler (not just uniform
+scaling). Sample or pin individual variants with `blockn roll PRODUCT --seed N
+--variant NAME`, or call `core.architecture.roll_request(product, seed)` from
+Python. Preview a batch without exporting geometry:
+
+```bash
+python3 -m blockn agent series --products swahili-courtyard-house,khmer-temple-mountain \
+    --count 2 --seed 42 --detail concept --recipe-only > variation.json
+python3 -m blockn agent build variation.json --output builds/variation
+```
+
+For many variations on one product, `blockn sonnet PRODUCT --count N` deals
+requests whose verses do not repeat and prints them as a recipe; `--hold
+LINE=ANSWER` pins a line across the set. See [architecture
+sonnets](ARCHITECTURE_SONNETS.md).
+
+`--recipe-only` is an editable recipe, not a quality receipt. The geometry and
+placement budget are checked when building; `--kitbash` additionally measures
+the buildings when sampling to size their podiums.
+
 `build` accepts `blockn.kitbash/v1`. Each building has a filename-safe `id` and
 **exactly one** of `request` (one catalog building) or `parts` (a kitbash).
 Each part has its own `id`, a normal build `request`, and an optional `[x,y,z]`
@@ -87,12 +107,13 @@ controls, and a green intensity palette. Model framing excludes the decorative
 grid so generated geometry is immediately visible. Agent output remains plain
 JSON for automation; it does not mix terminal decoration into machine output.
 
-The [historic architects](HISTORIC_ARCHITECTS.md) add `norman-keep`,
-`norman-shell-keep`, `norman-castle`, `egyptian-temple`,
-`mesoamerican-pyramid` and `japanese-pagoda`; `examples/world-architecture.json`
-builds a keep, a shell keep, a pyramid and a pagoda in one batch. Filled wall
-cores make these large: the Egyptian temple and the walled castle are best
-built on their own within the 30,000-placement batch budget. Cathedral series use `--products gothic-cathedral`. See the
+The [historic architects](HISTORIC_ARCHITECTS.md) can be mixed in a batch.
+The [world architecture recipe](../examples/world-architecture.json) builds eight
+examples at concept detail to stay within the 30,000-placement budget. The
+[Byzantine plans recipe](../examples/byzantine-plans.json) compares four
+cross-in-square churches on identical plots in a separate batch. Filled wall
+cores make the Egyptian temple and the walled castle best built on their own.
+Cathedral series use `--products gothic-cathedral`. See the
 [cathedral recipe](../examples/cathedral-kitbash.json) for explicit styles and
 [the cathedral guide](CATHEDRAL_ARCHITECT.md) for proportions and member roles.
 

@@ -12,6 +12,7 @@ import shutil
 import tempfile
 
 from .compiler import compile_document
+from . import historic
 from .io import export_bundle
 from .schema import ArchitectInfo, BuildDocument, BuildRequest
 from .service import build, describe_product
@@ -190,13 +191,15 @@ def build_recipe(recipe):
     return results, district
 
 
-def series_recipe(count=6, seed=0, products=DEFAULT_PRODUCTS, kitbash=False):
-    """Different products and proportion-preserving sizes, repeatable by seed."""
+def series_recipe(count=6, seed=0, products=DEFAULT_PRODUCTS, kitbash=False, *, detail=None):
+    """Sample historic rules; preserve the legacy sampler for other products."""
     _integer(count, "count", 1, MAX_BUILDINGS)
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise ValueError("seed must be an integer")
     if not products:
         raise ValueError("at least one product is required")
+    if detail is not None and detail not in historic.DETAILS:
+        raise ValueError("detail must be concept, standard, or presentation")
     descriptors = [describe_product(p) for p in products]
     rng = random.Random(seed)
     buildings = []
@@ -212,6 +215,10 @@ def series_recipe(count=6, seed=0, products=DEFAULT_PRODUCTS, kitbash=False):
             from .timberwright import random_controls
             request = {"product": descriptor["name"], "seed": seed + i, "style": "timber",
                        **random_controls(rng)}
+        elif historic.style_for(descriptor["name"]):
+            request = historic.roll_request(descriptor["name"], seed + i, detail=detail).to_dict()
+        if detail is not None:
+            request["detail"] = detail
         entry = {"id": f"building-{i + 1:03d}", "request": request}
         if kitbash:
             measured = _check(build(_request(request)), entry["id"])

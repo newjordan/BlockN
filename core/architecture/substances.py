@@ -181,6 +181,25 @@ SUBSTANCES: Dict[str, Substance] = {substance.id: substance for substance in (
         basis="typical engineering-handbook range for quartz sandstone",
     ),
     Substance(
+        id="coral-limestone", name="Coral-rag limestone", category="stone",
+        density=1720.0, density_range=(1400.0, 2200.0),
+        compressive_strength=6.0, tensile_strength=0.6, elastic_modulus=3.0,
+        friction=0.62, color_low=(184, 165, 140), color_high=(231, 214, 187),
+        roughness=0.96, metallic=0.0,
+        weathering=("porous surfaces hold salt and damp", "lime finishes lighten the wall faces"),
+        basis="illustrative proxy for historic fossil coral limestone, not a quarry specification",
+    ),
+    Substance(
+        id="laterite", name="Laterite building stone", category="stone",
+        density=1900.0, density_range=(1600.0, 2300.0),
+        compressive_strength=5.0, tensile_strength=0.5, elastic_modulus=2.0,
+        friction=0.6,
+        color_low=(124, 70, 49), color_high=(168, 103, 74),
+        roughness=0.96, metallic=0.0,
+        weathering=("iron-rich surfaces weather to deep red-brown", "exposed pores retain damp and dust"),
+        basis="illustrative proxy for quarried laterite; porosity and strength are site dependent",
+    ),
+    Substance(
         id="granite", name="Granite", category="stone",
         density=2700.0, density_range=(2600.0, 2800.0),
         compressive_strength=160.0, tensile_strength=10.0, elastic_modulus=60.0,
@@ -383,7 +402,27 @@ SUBSTANCES: Dict[str, Substance] = {substance.id: substance for substance in (
         ),
         basis="typical range for opus caementicium with tuff and pozzolana aggregate",
     ),
+    Substance(
+        id="cast-concrete", name="Exposed cast concrete", category="binder",
+        density=2400.0, density_range=(2250.0, 2500.0),
+        compressive_strength=30.0, tensile_strength=2.5, elastic_modulus=29.0,
+        friction=0.58, color_low=(146, 143, 133), color_high=(198, 193, 181),
+        roughness=0.91, metallic=0.0,
+        weathering=("Casting joints and board impressions catch dirt",
+                    "Rain streaks concentrate beneath projecting slab edges",
+                    "Exposed edges can chip, revealing aggregate"),
+        basis="typical normal-weight Portland cement concrete proxy; no reinforcement or capacity modeled",
+    ),
     # ------------------------------------------------------------ timber
+    Substance(
+        id="hardwood", name="Dense tropical hardwood", category="timber",
+        density=780.0, density_range=(610.0, 1010.0),
+        compressive_strength=49.0, tensile_strength=85.0, elastic_modulus=11.0,
+        friction=0.46, color_low=(89, 56, 35), color_high=(147, 106, 67),
+        roughness=0.66, metallic=0.0,
+        weathering=("traffic polishes carved edges", "exposed surfaces grey"),
+        basis="visualization proxy for historically used hardwoods; species and grain matter",
+    ),
     Substance(
         id="oak", name="Oak", category="timber",
         density=750.0, density_range=(680.0, 820.0),
@@ -439,6 +478,16 @@ SUBSTANCES: Dict[str, Substance] = {substance.id: substance for substance in (
             "sheltered colour keeps its depth and slowly darkens",
         ),
         basis="typical range for softwood under lacquer or mineral paint; strength is that of the fir beneath the coating",
+    ),
+    Substance(
+        id="palm-timber", name="Palm timber", category="timber",
+        density=600.0, density_range=(400.0, 800.0),
+        compressive_strength=25.0, tensile_strength=45.0, elastic_modulus=8.0,
+        friction=0.40,
+        color_low=(73, 55, 38), color_high=(129, 100, 69),
+        roughness=0.72, metallic=0.0,
+        weathering=("exposed fibres grey in sunlight", "water darkens exposed end grain"),
+        basis="illustrative palm-wood proxy; properties vary across the stem and are not design values",
     ),
     # ----------------------------------------------------------- roofing
     Substance(
@@ -636,6 +685,12 @@ WEATHERING = {profile.substance_id: profile for profile in (
              OXIDE_BROWN, 0.08, 0.08, 0.55, 1.0),
     _profile("sandstone", (0.22, 0.08), (0.16, 0.08), IRON_RED, (0.08, 0.04), "open",
              IRON_RED, 0.78, 0.12, 0.42, 1.0),
+    _profile("laterite", (0.19, 0.08), (0.36, 0.08), IRON_RED, (0.12, 0.04), "open",
+             OXIDE_BROWN, 0.38, 0.08, 0.38, 0.9),
+    _profile("coral-limestone", (0.41, 0.08), (0.36, 0.08), PALE_WASH, (0.08, 0.04), "open",
+             PALE_WASH, 0.29, 0.08, 0.49, 1.0),
+    _profile("hardwood", (0.24, 0.08), (0.28, 0.08), (147, 134, 113), (0.14, 0.05), "open",
+             (147, 134, 113), 0.20, 0.07, 0.52, 1.0),
     _profile("granite", (0.18, 0.08), (0.22, 0.08), OXIDE_BROWN, (0.06, 0.04), "open",
              OXIDE_BROWN, 0.16, 0.10, 0.28, 0.8),
     _profile("marble", (0.12, 0.06), (0.40, 0.08), SOOT_BLACK, (0.16, 0.10), "shelter",
@@ -666,12 +721,16 @@ WEATHERING = {profile.substance_id: profile for profile in (
              OXIDE_BROWN, 0.12, 0.10, 0.40, 0.8),
     _profile("roman-concrete", (0.18, 0.08), (0.22, 0.08), OXIDE_BROWN, (0.14, 0.08), "open",
              OXIDE_BROWN, 0.20, 0.05, 0.34, 0.8),
+    _profile("cast-concrete", (0.16, 0.07), (0.25, 0.07), PALE_WASH, (0.10, 0.05), "open",
+             OXIDE_BROWN, 0.08, 0.07, 0.46, 0.9),
     _profile("oak", (0.10, 0.04), (0.18, 0.08), SILVER_GREY, (0.62, 0.12), "open",
              OXIDE_BROWN, 0.08, 0.18, 0.30, 0.6),
     _profile("softwood", (0.14, 0.06), (0.14, 0.08), SILVER_GREY, (0.58, 0.12), "open",
              OXIDE_BROWN, 0.06, 0.16, 0.26, 0.5),
     _profile("cedar", (0.08, 0.04), (0.12, 0.06), SILVER_GREY, (0.52, 0.12), "open",
              (176, 140, 88), 0.05, 0.12, 0.20, 0.5),
+    _profile("palm-timber", (0.12, 0.06), (0.18, 0.08), SILVER_GREY, (0.50, 0.12), "open",
+             OXIDE_BROWN, 0.07, 0.16, 0.24, 0.5),
     # A coating ages by failing: exposed paint silvers where it flakes, so the
     # patina is the timber showing through and roughness climbs as it chalks.
     _profile("painted-timber", (0.10, 0.04), (0.16, 0.08), SILVER_GREY, (0.40, 0.10), "open",
@@ -738,7 +797,7 @@ REQUIRED_SUBSTANCE_IDS = (
     # earth and fired
     "fired-clay-brick", "engineering-brick", "mud-brick", "terracotta", "glazed-tile",
     # binders
-    "lime-mortar", "lime-plaster", "stucco", "roman-concrete",
+    "lime-mortar", "lime-plaster", "stucco", "roman-concrete", "cast-concrete",
     # timber
     "oak", "softwood", "cedar",
     # roofing

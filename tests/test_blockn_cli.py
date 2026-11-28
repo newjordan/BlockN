@@ -46,7 +46,7 @@ class TestBlockNCLI(unittest.TestCase):
 
         products = payload["products"]
         product_names = [item["name"] for item in products]
-        self.assertEqual(len(products), 47)
+        self.assertEqual(len(products), 67)
         self.assertEqual(len(set(product_names)), len(products))
         self.assertIn("wall", product_names)
         self.assertIn("classical-building", product_names)
@@ -57,7 +57,11 @@ class TestBlockNCLI(unittest.TestCase):
             "norman-keep", "norman-shell-keep", "norman-castle",
             "egyptian-temple", "mesoamerican-pyramid", "japanese-pagoda",
             "chinese-hall", "chinese-palace-hall", "dravidian-gopuram", "dravidian-vimana",
-            "stave-church", "stave-loft",
+            "stave-church", "stave-loft", "sahelian-mosque", "inka-kancha", "khmer-temple-mountain", "swahili-courtyard-house",
+            "minangkabau-rumah-gadang", "chacoan-great-house", "brutalist-civic-center",
+            "brutalist-housing", "brutalist-arts-center", "brutalist-portal-field", "byzantine-church",
+            "mesopotamian-ziggurat", "buddhist-stupa", "muscovite-church", "zimbabwe-enclosure", "lalibela-church",
+            "artdeco-tower", "geodesic-dome", "tibetan-palace", "mughal-tomb",
         ):
             self.assertIn(historic_name, product_names)
 
@@ -70,8 +74,24 @@ class TestBlockNCLI(unittest.TestCase):
             architect_ids,
             {"primitive", "circulation", "envelope", "site", "plan", "classical", "structure", "spire",
              "cathedral", "marble", "timberwright", "castle", "egyptian", "mesoamerican", "pagoda", "persian",
-             "settlement", "victorian", "chinese", "dravidian", "stave"},
+             "settlement", "victorian", "chinese", "dravidian", "stave", "sahelian", "inka", "khmer", "swahili",
+             "minangkabau", "chacoan", "brutalist", "byzantine", "mesopotamian", "stupa", "muscovite", "zimbabwe",
+             "lalibela", "artdeco", "geodesic", "tibetan", "mughal"},
         )
+
+    def test_roll_recipe_and_make_randomize_share_the_same_request(self):
+        product = "swahili-courtyard-house"
+        recipe = self.json_stdout(self.run_blockn("agent", "series", "--products", product, "--count", 1,
+                                                   "--seed", 21, "--recipe-only", "--detail", "concept"))
+        default_roll = self.json_stdout(self.run_blockn("roll", product, "--seed", 21, "--detail", "concept"))
+        self.assertEqual(recipe["buildings"][0]["request"], default_roll)
+        options = ("--seed", 21, "--variant", "single-court", "--detail", "concept")
+        pinned = self.json_stdout(self.run_blockn("roll", product, *options))
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "rolled.json"
+            self.json_stdout(self.run_blockn("make", product, "--randomize", *options, "--bays", 4,
+                                             "--document", path, "--json-summary"))
+            self.assertEqual(json.loads(path.read_text())["request"], {**pinned, "bays": 4})
 
     def test_make_wall_bundle_has_quality_and_semantic_glb_geometry(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -638,11 +638,13 @@ def build_document(request):
 
 
 def random_controls(product, rng):
-    """A tower's height suits its plan and its talas, so a random one is the default grown or shrunk whole."""
-    width, height, depth = FORMS[product].defaults
+    """Sample nearby tower grids and tala counts without exhausting the crown space."""
+    form = FORMS[product]
+    width, height, depth = form.defaults
     scale = rng.uniform(.85, 1.2)
+    bays, levels = form.controls["bays"], form.controls["levels"]
     return {"width": round(width * scale), "height": round(height * scale), "depth": round(depth * scale),
-            "bays": FORMS[product].controls.get("bays"), "levels": FORMS[product].controls.get("levels"),
+            "bays": rng.choice((bays - 2, bays, bays + 2)), "levels": rng.randint(levels - 1, levels + 1),
             "detail": rng.choice(("concept", "standard"))}
 
 

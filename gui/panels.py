@@ -126,6 +126,9 @@ class GenerationPanel(QWidget):
         self.historic_style.setToolTip("Building tradition within this architect")
         self.historic_style.hide()
         gen_layout.addWidget(self.historic_style)
+        self.keep_historic_variant = QCheckBox("Keep variant on randomize")
+        self.keep_historic_variant.hide()
+        gen_layout.addWidget(self.keep_historic_variant)
         self.persian_controls = QWidget()
         persian_layout = QGridLayout(self.persian_controls)
         persian_layout.setContentsMargins(0, 0, 0, 0)
@@ -393,6 +396,7 @@ class GenerationPanel(QWidget):
         self.persian_controls.setVisible(is_persian)
         self.timber_controls.setVisible(timber)
         self.historic_style.setVisible(bool(found))
+        self.keep_historic_variant.setVisible(bool(found))
         if found:
             module, form = found
             self.historic_style.clear()
@@ -422,6 +426,7 @@ class GenerationPanel(QWidget):
         self.form_levels.setRange(1, 2 if timber else 3)
         self.form_levels.setEnabled(product in {"classical-aqueduct", marble_run.PRODUCT, timberwright.PRODUCT})
         self.form_bays.setRange(4 if gothic else 2, 7 if timber else 10 if gothic else 12)
+        self.form_bays.setSingleStep(1)
         self.form_bays.setEnabled(True)
         if found:
             # Each form says which of bays and levels it understands, and their range.
@@ -430,6 +435,7 @@ class GenerationPanel(QWidget):
                 widget.setEnabled(name in form.controls)
                 if name in form.controls:
                     widget.setRange(*form.rules[name])
+                    widget.setSingleStep(form.rules.get(f"{name}_step", 1))
                     widget.setValue(form.controls[name])
         if legacy:
             for widget, value in zip((self.width_spinbox, self.height_spinbox, self.depth_spinbox), (14, 9, 20)):
@@ -462,6 +468,7 @@ class GenerationPanel(QWidget):
         self.persian_controls.hide()
         self.timber_controls.hide()
         self.historic_style.hide()
+        self.keep_historic_variant.hide()
         self.cathedral_style.hide()
         self.cathedral_cutaway.hide()
         self.cathedral_controls.hide()
@@ -583,8 +590,20 @@ class GenerationPanel(QWidget):
         )
 
     def _on_randomize_controls(self):
-        self.seed_input.setText(str(random.randint(0, 2**31 - 1)))
+        seed = random.randint(0, 2**31 - 1)
+        self.seed_input.setText(str(seed))
         product = self.classical_form_combo.currentData()
+        if historic.style_for(product):
+            variant = self.historic_style.currentData() if self.keep_historic_variant.isChecked() else None
+            rolled = historic.roll_request(product, seed, variant=variant)
+            self.historic_style.setCurrentIndex(self.historic_style.findData(rolled.variant))
+            for widget, value in ((self.width_spinbox, rolled.width), (self.height_spinbox, rolled.height),
+                                  (self.depth_spinbox, rolled.depth), (self.form_bays, rolled.bays),
+                                  (self.form_levels, rolled.levels)):
+                if value is not None:
+                    widget.setValue(int(value))
+            self.form_detail.setCurrentText(rolled.detail)
+            return
         if product in settlement.PRODUCT_NAMES:
             controls = settlement.random_controls(product, variant=self.settlement_variant.currentData())
             self.width_spinbox.setValue(int(controls["width"]))
@@ -594,10 +613,7 @@ class GenerationPanel(QWidget):
         if product != "classical-building":
             # The typology owns its buildable envelope; the selected form and
             # order stay exactly as the user set them.
-            if historic.style_for(product):
-                controls = historic.style_for(product)[0].random_controls(product, random)
-                controls["bays"] = controls["bays"] or self.form_bays.value()
-            elif product == cathedral.PRODUCT:
+            if product == cathedral.PRODUCT:
                 controls = cathedral.random_controls()
             elif product == marble_run.PRODUCT:
                 controls = marble_run.random_controls()

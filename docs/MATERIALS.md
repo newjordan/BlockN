@@ -54,6 +54,7 @@ The registry (29 substances):
 | lime-plaster | binder | 1600 | 2.5 | 0.5 | 4 |
 | stucco | binder | 1850 | 5 | 1 | 8 |
 | roman-concrete | binder | 1700 | 8 | 0.7 | 10 |
+| cast-concrete | binder | 2400 | 30 | 2.5 | 29 |
 | oak | timber | 750 | 50 | 90 | 12 |
 | softwood | timber | 500 | 35 | 70 | 11 |
 | cedar | timber | 420 | 30 | 60 | 8.5 |

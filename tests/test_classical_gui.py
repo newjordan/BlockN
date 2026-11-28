@@ -22,7 +22,7 @@ class ClassicalGUITests(unittest.TestCase):
         self.assertEqual(panel.age_spinbox.value(), 0.35)
         self.assertEqual((panel.age_spinbox.minimum(), panel.age_spinbox.maximum()), (0.0, 1.0))
         self.assertEqual(panel.classical_order_combo.count(), 6)
-        self.assertEqual(panel.classical_form_combo.count(), 31)
+        self.assertEqual(panel.classical_form_combo.count(), 51)
         for product, (_, size, _) in FORMS.items():
             panel.classical_form_combo.setCurrentIndex(panel.classical_form_combo.findData(product))
             self.assertEqual((panel.width_spinbox.value(), panel.height_spinbox.value(), panel.depth_spinbox.value()), size)

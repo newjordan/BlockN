@@ -1,9 +1,9 @@
 # Historic Architects
 
-Seven architects extend BlockN beyond the classical and Gothic catalog. Each one
+Fourteen architects extend BlockN beyond the classical and Gothic catalog. Each one
 is a small rule system for one building tradition: it decides proportions,
-members and openings from the tradition's own logic, lays masonry stone by
-stone, and is then audited against rules measured from the finished geometry.
+members and openings from the tradition's own logic, and is then audited
+against rules measured from the finished geometry.
 
 | Architect | Products | Variants |
 | --- | --- | --- |
@@ -19,6 +19,20 @@ stone, and is then audited against rules measured from the finished geometry.
 | | `dravidian-vimana` | `kuta-vimana`, `shala-vimana` |
 | Nordic Stave | `stave-church` | `borgund`, `single-nave` |
 | | `stave-loft` | `loft-house`, `stabbur` |
+| Sudano-Sahelian | `sahelian-mosque` | `djenne` |
+| Imperial Inka | `inka-kancha` | `cusco-court` |
+| Angkor Khmer | `khmer-temple-mountain` | `angkor-wat` |
+| Swahili Coast | `swahili-courtyard-house` | `single-court`, `double-court` |
+| Minangkabau | `minangkabau-rumah-gadang` | `bodi-caniago`, `koto-piliang` |
+| Chacoan | `chacoan-great-house` | `single-kiva`, `paired-kivas` |
+| Byzantine | `byzantine-church` | `four-column`, `two-column`, `five-dome`, `four-pier` |
+| [Brutalism Studio](BRUTALISM_STUDIO.md) | `brutalist-civic-center`, `brutalist-housing`, `brutalist-arts-center`, `brutalist-portal-field` | Two variants per brief |
+
+Nine more traditions (Mesopotamian ziggurat, Buddhist stupa, Muscovite church,
+Great Zimbabwe, Lalibela, Art Deco tower, geodesic dome, Tibetan palace and
+Mughal tomb) are written as [architecture sonnets](ARCHITECTURE_SONNETS.md):
+historic architects whose open decisions are named lines that can be pinned,
+read and dealt as variations.
 
 ```bash
 python3 -m blockn describe norman-castle
@@ -32,10 +46,13 @@ python3 -m blockn make dravidian-gopuram --levels 11 --bundle builds/gopuram
 python3 -m blockn make dravidian-vimana --variant shala-vimana --bundle builds/vimana
 python3 -m blockn make stave-church --variant borgund --bundle builds/stave-church
 python3 -m blockn make stave-loft --variant stabbur --bundle builds/stabbur
+python3 -m blockn make sahelian-mosque --variant djenne --bays 5 --bundle builds/djenne
+python3 -m blockn make inka-kancha --variant cusco-court --bays 2 --bundle builds/inka-kancha
+python3 -m blockn make khmer-temple-mountain --variant angkor-wat --bays 4 --bundle builds/angkor
 python3 -m blockn agent build examples/world-architecture.json --output builds/world
 ```
 
-![All twenty variants in the phosphor view](../public/historic/contact-sheet.png)
+![Historic variants in the phosphor view](../public/historic/contact-sheet.png)
 
 `python3 scripts/render_historic_sheet.py` redraws the sheet from real builds,
 and refuses to draw one that is not a clean `pass`.
@@ -79,7 +96,7 @@ flagstaff may stand a little above the stated height.
 
 ## How masonry is built
 
-A wall is never one solid. It is an ashlar facing laid in running bond, in
+An ashlar wall is built as a facing laid in running bond, in
 stones no taller than 0.8 m and no longer than 1.6 m, the same gate the
 classical catalog uses. Thick walls are built as they were: two facings with a
 core of large blocks between them, laid to break joint. The core stays open
@@ -287,6 +304,158 @@ and oak ground sills (`grunnstokker`), wrapped by an encircling covered gallery
 head plates, and St. Andrew's scissor braces. The forms can be seen at Borgund,
 Urnes, and the medieval lofts of Telemark.
 
+## Sudano-Sahelian Architect
+
+`sahelian-mosque` models the earthen mosque tradition of Djenné, Mali, as
+represented by the Great Mosque completed in 1907. It is a new composition,
+not a survey, a reconstruction, or a template for every Sudano-Sahelian mosque.
+See [UNESCO's Old Towns of Djenné](https://whc.unesco.org/en/list/116/) and
+[Smarthistory's Great Mosque of Djenné](https://smarthistory.org/great-mosque-of-djenne/).
+
+The model approaches the complex through a raised open courtyard on the `-Z`
+side. Beyond it, a grid of mud-brick piers supports palm beams and a flat earth
+roof. The `+Z` qibla facade has three tapered towers (the middle one tallest),
+engaged buttresses, and rows of **toron**: palm timbers that project from the
+walls to provide footholds and supports for replastering. The model simplifies
+the earthen finish, interior plan, and tower crowns. Timber and compacted earth
+are counted separately from mud-brick units in the build reports.
+
+Use `--bays 3`, `5` (default), or `7` for the number of aisles across the hall.
+`--detail` changes the block sizes and toron detail; `--seed` varies batter and
+timber projection without changing the plan. **Open roof** in the desktop view
+exposes the hall piers and beams. The default dimensions are 42 × 17 × 46 m
+(width × height × depth); `blockn describe sahelian-mosque` lists the scale and
+ratio limits. The model and its load report are not construction guidance.
+
+## Imperial Inka Architect
+
+`inka-kancha` draws on 15th- and early 16th-century Inka compounds of the
+Cusco region in the central Andes. A *kancha* encloses an open court with
+independent buildings facing inward. This model places four rectangular halls
+around the court, with an offset entrance and passages between the halls.
+See [UNESCO's City of Cuzco](https://whc.unesco.org/en/list/273/) for the
+urban context. The roofs and stone joints are stylized; this is not a site
+reconstruction or a claim that all kancha used fine stonework.
+
+The stone units share polygonal seams, rather than using a rectangular wall
+with a stone texture. The jamb stones narrow toward a separate granite lintel.
+Steep paired timber rafters carry thatch without spanning the court. **Open
+roof** in the desktop hides the thatch to show the frame.
+
+`--bays` gives one to three doors per hall (default two). `--detail` changes
+stone and thatch module sizes; `--seed` varies joint profiles, stone tones and
+eave height. Set `"parameters": {"variation": 0}` in a build request JSON to
+fix the canonical proportions.
+The default plot measures 28 × 8 × 28 m (width × height × depth).
+
+## Angkor Khmer Architect
+
+`khmer-temple-mountain` studies the 12th-century architecture of Angkor in
+Cambodia. It takes its five-tower plan from Angkor Wat: four corner sanctuary
+towers surround a taller central tower, forming a *quincunx*. Three raised
+terraces with sandstone faces and laterite cores recede toward the summit.
+Axial stairways cross the terraces between open-sided galleries. The gallery
+roofs close with overlapping courses stepped inward under a ridge cap, rather
+than a true arch. The sanctuary crowns use receding moulded stages, stylized
+pediments and lotus-bud profiles.
+
+This is a compact composition, not a survey model of [Angkor Wat](https://whc.unesco.org/en/list/668/);
+it omits the moat, outer enclosures, and original bas-relief program. `--bays`
+sets the column bays in each gallery wing (3–6, default 4). `--detail` refines
+the masonry without changing the outline. In the desktop, **Open roof** hides
+the gallery vaults and leaves the tower crowns visible.
+
+## Swahili Coast Architect
+
+`swahili-courtyard-house` draws on the coral-rag houses of [Lamu Old Town](https://whc.unesco.org/en/list/1055/)
+in Kenya, not on a survey of a specific house. A carved timber surround and
+baraza benches face the street. The inner doorway is offset to screen the
+domestic rooms. Flat lime decks on timber joists cover the enclosed rooms but
+leave the courts open. **Open roof** reveals the room ranges and dogleg entry.
+
+`single-court` has two room ranges around one open court; `double-court` adds a
+third range and a second court. `--bays` sets the number of doorways across the
+court-facing room fronts (2–4). The seed varies court proportions and the
+screened entry offset; `--param variation=0` fixes those internal proportions.
+
+## Minangkabau Architect
+
+`minangkabau-rumah-gadang` is a visual interpretation of the [Minangkabau timber-house tradition](https://doi.org/10.1080/1363981042000263480)
+of West Sumatra, Indonesia. Timber posts stand on individual padstones, raising
+the living floor above an open undercroft. A central stair serves the long
+facade. The model uses dark palm-fiber thatch on four swept *gonjong* peaks:
+two at the ends of the main ridge and two facing the entrance.
+
+`bodi-caniago` has a single-level living floor. `koto-piliang` adds paired
+raised end platforms (*anjuang*). **Open roof** exposes the floor levels and
+roof framing. Choose 3, 5, or 7 lengthwise bays with `--bays`; the odd count
+centers the entrance. Rerolls vary the layout, bay count and proportions. This
+is a procedural visual model, not a reconstruction of a specific house.
+
+```bash
+python3 -m blockn roll minangkabau-rumah-gadang --seed 1 --variant koto-piliang > gadang.json
+python3 -m blockn build gadang.json --bundle builds/rumah-gadang
+```
+
+## Chacoan Great House Architect
+
+`chacoan-great-house` draws on the Ancestral Pueblo architecture of Chaco Canyon,
+New Mexico, including [Pueblo Bonito](https://www.nps.gov/chcu/planyourvisit/pueblo-bonito.htm).
+A curved sandstone range faces an open plaza. Its room fronts recede at each
+level; timber *vigas* carry flat earthen terraces. **Open roof** reveals the
+room divisions and timber framing. The circular kivas are deliberately shown
+as open cutaways, exposing their recessed floors, stone linings, and benches.
+The layouts are visual interpretations, not reconstructions of specific sites.
+
+`single-kiva` has one circular chamber and two room tiers; `paired-kivas` has
+two chambers and three tiers. `--bays` sets the number of plaza-facing rooms
+per tier (4–7). The seed varies the proportions, kiva placement and setbacks.
+
+```bash
+python3 -m blockn roll chacoan-great-house --seed 3 > chaco.json
+python3 -m blockn build chaco.json --bundle builds/chaco
+```
+
+## Byzantine Architect
+
+`byzantine-church` builds a Middle Byzantine cross-in-square church, a type
+used in Constantinople, Macedonia and Greece. Four great arches define the
+central bay; layered pendentives shift the square into the drum's circle.
+Brick and limestone bands share course heights around the walls. Above them,
+the roofs over the four arms rise above the corner bays. A western narthex
+opens into the main chamber through a triple arcade.
+
+- `four-column`: four freestanding supports under the great arches.
+- `two-column`: two western columns and two sanctuary piers.
+- `five-dome`: four lower domes over the corner bays as well as the central dome.
+- `four-pier`: masonry corner cells, four piers, and one eastern apse.
+
+Use an even `--bays` count from 4 to 20 for the drum lights. Width, height,
+and depth are coupled by the arch span, springing height, and room for the
+narthex and apses. These are typological studies, not surveys or thrust analyses.
+The [four-plan recipe](../examples/byzantine-plans.json) holds the plot, seed,
+and drum-light count fixed so the plan differences can be compared directly.
+
+```bash
+python3 -m blockn roll byzantine-church --variant five-dome --seed 73 > church.json
+python3 -m blockn build church.json --bundle builds/byzantine-church
+```
+
+## Reroll and replay
+
+```bash
+python3 -m blockn roll swahili-courtyard-house --seed 42 --variant double-court > lamu.json
+python3 -m blockn build lamu.json --bundle builds/lamu
+python3 -m blockn make khmer-temple-mountain --randomize --seed 43 --bays 6 --bundle builds/angkor
+```
+
+Rerolls sample proportions and the rule controls supported by each historic
+form: for example, Khmer gallery bays, Chinese odd bay grids, and Dravidian
+tala counts. The same product, seed, and options give the same request. An
+explicit `--variant` or `--detail` pins that choice; `make --randomize` also
+honors explicit dimensions, bays and levels. The desktop uses the same
+sampler. Manual overrides can take a request outside its architect's envelope.
+
 ## Quality rules
 
 Every build passes the shared gates (watertight members, positive volume,
@@ -340,6 +509,31 @@ damaged document whose metadata has been stripped.
 | `stave.paired_dragon_finials` | Dragon-head finials crown the gable ends symmetrically across the axis |
 | `stave.apse_at_east` | The choir and semicircular apse project cleanly east of the nave |
 | `stave.overhanging_upper_storey` | The upper svalgang gallery cantilevers over the ground floor and is reached by the external stair |
+| `sahelian.three_qibla_towers` | Three topped towers face the qibla, with the middle one tallest |
+| `sahelian.battered_facade` | Towers and four engaged buttresses narrow toward the head |
+| `sahelian.embedded_toron` | Projecting palm timbers engage each tower in several rows |
+| `sahelian.open_courtyard` | The courtyard is clear of roof decking and framing |
+| `sahelian.pillared_hall` | The earthen piers meet the palm roof beams |
+| `inka.trapezoidal_openings` | Jambs narrow toward their stone lintels |
+| `inka.open_court` | Thatch and roof framing stay clear of the courtyard |
+| `inka.inward_halls` | All four halls open toward the court |
+| `inka.steep_gables` | Paired rafters keep the roof pitches steep |
+| `khmer.receding_terraces` | Three terraces rise and recede toward the summit |
+| `khmer.axial_stairways` | Four stair flights per terrace rise continuously to the next level |
+| `khmer.five_tower_quincunx` | Four equal corner towers surround a taller central tower |
+| `khmer.inward_corbel_steps` | Each gallery closes on bearing corbel courses and a ridge cap |
+| `swahili.open_courts` | One or two unroofed courts sit between enclosed room ranges |
+| `swahili.screened_entry` | The clear street and screen openings are offset |
+| `minangkabau.raised_frame` | The post grid bears on padstones and carries the floor girders |
+| `minangkabau.swept_gonjong` | Two matched ridge pairs sweep upward at their tips |
+| `minangkabau.floor_tradition` | The living floor is level; only Koto Piliang adds paired raised ends |
+| `chacoan.open_kivas` | The circular plaza chambers are recessed and open above their floors |
+| `chacoan.kiva_courses` | Stone beds close continuously around each circular chamber |
+| `chacoan.terraced_range` | Each level bears on the last and steps back from the plaza |
+| `byzantine.pendentives_carry_drum` | Four mirrored pendentives meet the inner radius and base elevation of the drum |
+| `byzantine.banded_walls` | Straight and radial masonry use the same brick and limestone course schedule |
+| `byzantine.cross_in_the_roofs` | Four equal arm ridges frame hipped roofs or four lesser domes, depending on the plan |
+| `byzantine.dome_crowns_the_church` | The main dome rises above the roofs and meets the finial cap on-axis |
 
 Each also has `required_roles`, `envelope_connectivity` and
 `member_semantics`. These are geometric diagnostics for visual assets. They

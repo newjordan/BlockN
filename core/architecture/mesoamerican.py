@@ -33,6 +33,9 @@ FORMS = {form.name: form for form in (
          frozenset({"terrace_paving", "stair_step", "alfarda", "temple_wall", "temple_lintel", "temple_roof"}),
          {"levels": 9},
          rules={"levels": [3, 9], "levels_meaning": "terraces; talud-tablero defaults to 4",
+                "reroll_controls_by_variant": {"talud-tablero": {"levels": [3, 4, 5]},
+                                              "radial": {"levels": [7, 8, 9]},
+                                              "maya-temple": {"levels": [6, 7, 8, 9]}},
                 "height_to_width": [0.4, 1.3], "depth_to_width": [0.8, 1.25],
                 "openings": "lintelled only; no true arch", "radial_steps": "4 x 91 + platform = 365"}),
 )}

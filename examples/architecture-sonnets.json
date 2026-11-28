@@ -1,0 +1,13 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 12,
+  "columns": 3,
+  "buildings": [
+    {"id": "mesopotamian-ziggurat-triple-stair", "request": {"architect": "mesopotamian", "product": "mesopotamian-ziggurat", "seed": 6, "width": 47.0, "height": 23.0, "depth": 42.0, "style": "mesopotamian-ziggurat", "detail": "concept", "variant": "triple-stair", "bays": null, "levels": 4, "openings": "auto", "parameters": {"buttresses": "close", "crown": "stepped-merlons", "shrine": "twin-cella", "stages": "even"}, "age": 0.35}},
+    {"id": "buddhist-stupa-great-stupa", "request": {"architect": "stupa", "product": "buddhist-stupa", "seed": 4, "width": 47.0, "height": 21.0, "depth": 46.0, "style": "buddhist-stupa", "detail": "concept", "variant": "great-stupa", "bays": null, "levels": null, "openings": "auto", "parameters": {"anda": "bell", "parasols": "triple", "terrace": "double", "torana": "three-architrave"}, "age": 0.35}},
+    {"id": "muscovite-church-five-domed", "request": {"architect": "muscovite", "product": "muscovite-church", "seed": 13, "width": 16.0, "height": 30.0, "depth": 24.0, "style": "muscovite-church", "detail": "concept", "variant": "five-domed", "bays": 2, "levels": null, "openings": "auto", "parameters": {"apses": "three", "domes": "onion", "gables": "kokoshniki", "porch": "tent"}, "age": 0.35}},
+    {"id": "lalibela-church-cruciform", "request": {"architect": "lalibela", "product": "lalibela-church", "seed": 4, "width": 31.0, "height": 13.0, "depth": 47.0, "style": "lalibela-rock-hewn", "detail": "concept", "variant": "cruciform", "bays": null, "levels": null, "openings": "auto", "parameters": {"approach": "open-stair", "plinth": "three-step", "relief": "nested-crosses", "windows": "ogee"}, "age": 0.35}},
+    {"id": "artdeco-tower-spire-crown", "request": {"architect": "artdeco", "product": "artdeco-tower", "seed": 5, "width": 32.0, "height": 139.0, "depth": 33.0, "style": "artdeco-setback", "detail": "concept", "variant": "spire-crown", "bays": null, "levels": null, "openings": "auto", "parameters": {"ornament": "chevron", "piers": "single", "portal": "stepped-arch", "setbacks": "street-stepped"}, "age": 0.35}},
+    {"id": "geodesic-dome-double-layer", "request": {"architect": "geodesic", "product": "geodesic-dome", "seed": 3, "width": 40.0, "height": 22.0, "depth": 40.0, "style": "geodesic-lattice", "detail": "concept", "variant": "double-layer", "bays": null, "levels": null, "openings": "auto", "parameters": {"base": "legs", "entry": "portal", "frequency": "4v", "skin": "glazed"}, "age": 0.35}}
+  ]
+}

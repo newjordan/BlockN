@@ -1,0 +1,23 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 8,
+  "columns": 4,
+  "buildings": [
+    {"id": "civic-center-forum", "request": {"product": "brutalist-civic-center", "variant": "forum", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "civic-center-assembly-gate", "request": {"product": "brutalist-civic-center", "variant": "assembly-gate", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "civic-center-s404", "request": {"product": "brutalist-civic-center", "seed": 404, "width": 59.0, "height": 22.0, "depth": 42.0, "detail": "standard", "variant": "forum", "bays": 5}},
+    {"id": "civic-center-s721", "request": {"product": "brutalist-civic-center", "seed": 721, "width": 53.0, "height": 25.0, "depth": 32.0, "detail": "standard", "variant": "assembly-gate", "bays": 8}},
+    {"id": "housing-slab", "request": {"product": "brutalist-housing", "variant": "slab", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "housing-stepped", "request": {"product": "brutalist-housing", "variant": "stepped", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "housing-s405", "request": {"product": "brutalist-housing", "seed": 405, "width": 51.0, "height": 27.0, "depth": 29.0, "detail": "standard", "variant": "slab", "bays": 4, "levels": 8}},
+    {"id": "housing-s722", "request": {"product": "brutalist-housing", "seed": 722, "width": 47.0, "height": 29.0, "depth": 26.0, "detail": "standard", "variant": "stepped", "bays": 3, "levels": 6}},
+    {"id": "arts-center-sky-bridges", "request": {"product": "brutalist-arts-center", "variant": "sky-bridges", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "arts-center-stepped-galleries", "request": {"product": "brutalist-arts-center", "variant": "stepped-galleries", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "arts-center-s404", "request": {"product": "brutalist-arts-center", "seed": 404, "width": 44.0, "height": 25.0, "depth": 42.0, "detail": "standard", "variant": "sky-bridges", "bays": 8}},
+    {"id": "arts-center-s406", "request": {"product": "brutalist-arts-center", "seed": 406, "width": 44.0, "height": 19.0, "depth": 41.0, "detail": "standard", "variant": "stepped-galleries", "bays": 4}},
+    {"id": "portal-field-procession", "request": {"product": "brutalist-portal-field", "variant": "procession", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "portal-field-syncopated", "request": {"product": "brutalist-portal-field", "variant": "syncopated", "seed": 73, "detail": "standard", "parameters": {"variation": 0}}},
+    {"id": "portal-field-s407", "request": {"product": "brutalist-portal-field", "seed": 407, "width": 23.0, "height": 11.0, "depth": 55.0, "detail": "standard", "variant": "procession", "bays": 5}},
+    {"id": "portal-field-s904", "request": {"product": "brutalist-portal-field", "seed": 904, "width": 28.0, "height": 9.0, "depth": 34.0, "detail": "standard", "variant": "syncopated", "bays": 5}}
+  ]
+}

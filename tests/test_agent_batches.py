@@ -7,7 +7,7 @@ import unittest
 from copy import deepcopy
 
 from core.architecture.agent import SCHEMA, BatchQualityError, build_recipe, export_recipe, series_recipe
-from core.architecture import rebuild
+from core.architecture import rebuild, roll_request
 
 
 def kit_recipe(offset=0.6):
@@ -18,6 +18,14 @@ def kit_recipe(offset=0.6):
 
 
 class AgentBatchTests(unittest.TestCase):
+    def test_historic_series_uses_rule_specific_controls(self):
+        product = "swahili-courtyard-house"
+        recipe = series_recipe(12, 0, (product,), detail="concept")
+        requests = [item["request"] for item in recipe["buildings"]]
+        self.assertEqual(requests, [roll_request(product, seed, detail="concept").to_dict() for seed in range(12)])
+        self.assertEqual({r["variant"] for r in requests}, {"single-court", "double-court"})
+        self.assertGreater(len({r["bays"] for r in requests}), 1)
+
     def test_series_is_repeatable_and_varied_without_mutating_recipe(self):
         recipe = series_recipe(3, 73)
         before = deepcopy(recipe)

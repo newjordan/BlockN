@@ -6,6 +6,10 @@
     {"id": "norman-great-tower", "request": {"product": "norman-keep", "variant": "square", "detail": "concept", "seed": 73}},
     {"id": "shell-keep-on-motte", "request": {"product": "norman-shell-keep", "detail": "concept", "seed": 73}},
     {"id": "maya-temple-pyramid", "request": {"product": "mesoamerican-pyramid", "variant": "maya-temple", "detail": "concept", "seed": 73}},
-    {"id": "five-storey-pagoda", "request": {"product": "japanese-pagoda", "variant": "five-storey", "detail": "standard", "seed": 73}}
+    {"id": "five-storey-pagoda", "request": {"product": "japanese-pagoda", "variant": "five-storey", "detail": "concept", "seed": 73}},
+    {"id": "djenne-mosque", "request": {"product": "sahelian-mosque", "variant": "djenne", "detail": "concept", "seed": 73}},
+    {"id": "cusco-kancha", "request": {"product": "inka-kancha", "variant": "cusco-court", "detail": "concept", "seed": 73}},
+    {"id": "rumah-gadang", "request": {"product": "minangkabau-rumah-gadang", "variant": "koto-piliang", "detail": "concept", "seed": 73}},
+    {"id": "chaco-great-house", "request": {"product": "chacoan-great-house", "variant": "paired-kivas", "detail": "concept", "seed": 73}}
   ]
 }

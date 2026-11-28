@@ -961,9 +961,13 @@ def build_document(request):
 def random_controls(product, rng):
     width, height, depth = FORMS[product].defaults
     scale = rng.uniform(.9, 1.2)
+    controls = {}
+    if product == "norman-keep":
+        controls = {"bays": rng.randint(2, 4), "levels": rng.randint(3, 5)}
+    elif product == "norman-castle":
+        controls = {"bays": rng.randint(0, 2)}
     return {"width": round(width * scale), "height": round(height * scale * rng.uniform(.95, 1.08)),
-            "depth": round(depth * scale), "bays": FORMS[product].controls.get("bays", 2),
-            "detail": rng.choice(("concept", "standard")), "levels": FORMS[product].controls.get("levels")}
+            "depth": round(depth * scale), "detail": rng.choice(("concept", "standard")), **controls}
 
 
 def rule_checks(document, form):

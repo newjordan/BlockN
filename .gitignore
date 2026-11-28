@@ -176,6 +176,16 @@ coverage.xml
 /builds/blocks-teaser/
 !/examples/timber-street.json
 /builds/two-architects-demo/
+/builds/blocks-showcase/
 !/examples/hall-and-vimana.json
 /builds/timber-street/
 !/examples/world-architecture.json
+/builds/rumah-gadang-review/
+/builds/chaco-review/
+/builds/brutalism-atlas/
+/builds/brutalism-studio/
+!/examples/brutalism-atlas.json
+/builds/byzantine-plans/
+!/examples/byzantine-plans.json
+!/examples/architecture-sonnets.json
+!/examples/architecture-sonnets-stone.json

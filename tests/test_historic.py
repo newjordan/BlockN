@@ -43,8 +43,17 @@ class CatalogTests(unittest.TestCase):
     def test_every_tradition_is_in_the_craft_catalog(self):
         traditions = craft_catalog()["traditions"]
         for key in ("norman-masonry", "egyptian-trabeated", "mesoamerican-terraced", "japanese-timber",
-                    "chinese-timber", "dravidian-tiered", "nordic-stave"):
+                    "chinese-timber", "dravidian-tiered", "nordic-stave", "sudano-sahelian", "imperial-inka",
+                    "angkor-temple-mountain", "swahili-stone-house", "minangkabau-timber", "chacoan-sandstone",
+                    "brutalist-concrete", "mesopotamian-ziggurat", "buddhist-stupa", "muscovite-church",
+                    "zimbabwe-dry-stone", "lalibela-rock-hewn", "artdeco-setback", "geodesic-lattice",
+                    "tibetan-fortress-palace", "mughal-garden-tomb"):
             self.assertGreaterEqual(len(traditions[key]["rules"]), 4)
+
+
+# Traditions with no wall core to fill: single-skin coral rag, a timber frame, thin coursed sandstone
+# and cast concrete. Their bill is still checked for completeness.
+UNFILLED = {"swahili", "minangkabau", "chacoan", "brutalist"}
 
 
 class BuildTests(unittest.TestCase):
@@ -116,7 +125,8 @@ class BuildTests(unittest.TestCase):
                 count = result.document.metadata[f"{module.ARCHITECT.id}_rules"]["block_count"]
                 self.assertEqual(count["total"], len(result.document.placements))
                 self.assertEqual(sum(v for k, v in count.items() if k != "total"), count["total"])
-                self.assertGreater(count["core_blocks"], 0)
+                if module.ARCHITECT.id not in UNFILLED:
+                    self.assertGreater(count["core_blocks"], 0)
         keep = built("norman-keep")
         rules = keep.document.metadata["castle_rules"]
         lights = [p for p in keep.document.placements if p.role == "window_arch"]

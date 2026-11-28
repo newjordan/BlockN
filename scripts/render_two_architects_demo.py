@@ -140,8 +140,15 @@ def pace(sizes, frames):
     and every column arrives in one frame, and a tower's plain base outlasts all its talas."""
     weights = [size ** .5 for size in sizes]
     share = [(3 * frames / len(sizes) + 2 * frames * weight / sum(weights)) / 5 for weight in weights]
-    lengths = [max(1, round(value)) for value in share]
-    lengths[int(np.argmax(share))] += frames - sum(lengths)     # rounding: on the longest stage
+    if frames < len(sizes):
+        raise ValueError(f"{len(sizes)} stages cannot each have a frame in {frames}")
+    # Every stage gets at least one frame. The rounding is settled frame by frame, so no stage goes below
+    # one: a spare frame goes to the stage furthest under its share, a missing one comes from the furthest over.
+    lengths = [max(1, int(value)) for value in share]
+    while sum(lengths) < frames:
+        lengths[max(range(len(share)), key=lambda i: share[i] - lengths[i])] += 1
+    while sum(lengths) > frames:
+        lengths[max((i for i in range(len(share)) if lengths[i] > 1), key=lambda i: lengths[i] - share[i])] -= 1
     return lengths
 
 

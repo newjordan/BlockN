@@ -19,6 +19,8 @@ import numpy as np
 
 from core.architectural_geometry import extrude_profile
 
+from .substances import SUBSTANCES
+
 
 CUBIT = 0.444
 MIN_STONE = 0.08
@@ -929,6 +931,11 @@ def placement_is_masonry_cube(placement: Any) -> bool:
         return False
     if construction in {"ashlar running bond", "ashlar stack"}:
         return True
+    # Coarse roles also describe timber infill and continuous cast walls.
+    # Explicit masonry units above always take precedence over material.
+    substance = SUBSTANCES.get(getattr(placement, "substance", None))
+    if substance is not None and (substance.category == "timber" or substance.id == "cast-concrete"):
+        return False
     if kind in {"wall", "wall_segment", "pier", "bridge_pier", "hall_pier"}:
         return True
     if "wall" in role and block_type == "CUBE":

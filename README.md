@@ -3,6 +3,59 @@
 This repository is the public build of BlockN and follows the development of SOTA models with new architecture styles over time.
 It carries the full generator: every period architect shown below, the settlement planner, block mode for Minecraft, substances and physics, weathering, every export format, the desktop workbench and the `blockn` CLI.
 
+## Seventeen new architects and architecture sonnets
+
+<a href="https://newjordan.github.io/BlockN/public/blockn-seventeen-architects.mp4"><img src="public/blockn-seventeen-architects-cover.png" alt="BlockN film: a five-domed Muscovite church built member by member, with its variant and the answers to its four open lines listed beneath" width="270"></a>
+
+[Watch the 75-second film (MP4, 39 MB, vertical, with sound)](https://newjordan.github.io/BlockN/public/blockn-seventeen-architects.mp4)
+
+This update adds seventeen architects. Every building in the film is a real
+build drawn in the workbench's own viewport, and each one passed its quality
+gate before it was drawn.
+
+Nine of the new architects are written as **architecture sonnets**. A sonnet
+form states the rules its tradition does not break, and names the decisions it
+leaves open as *lines*, each with a short list of allowed answers. The seed
+answers every line, and the answers together are the building's verse. A
+request can pin any line and let the seed write the rest, and `blockn sonnet`
+deals variations on one form with no verse repeated. The nine forms can be
+written in 472 verses between them, and inside each verse the seed still moves
+the plot and the proportions.
+
+- **Mesopotamian**: `mesopotamian-ziggurat`. Receding stages of buttressed baked brick over a sun-dried core, open stairs meeting at an arched gate, and a shrine on the summit.
+- **Buddhist Stupa**: `buddhist-stupa`. A solid dome on a terrace drum inside a railed path, with four gateways on the cardinal axes; Sanchi and Sri Lankan dagoba variants.
+- **Muscovite**: `muscovite-church`. A white cube with gabled wall bays and eastern apses under five onion domes or an eight-sided tent roof.
+- **Great Zimbabwe**: `zimbabwe-enclosure`. Granite laid dry in one closed curve, battered from foot to head, around a solid conical tower.
+- **Lalibela**: `lalibela-church`. A church cut down out of the rock, standing in its pit with its roof level with the ground.
+- **Art Deco**: `artdeco-tower`. A setback tower massed under New York's 1916 sky-exposure plane, with a tower on no more than a quarter of the lot.
+- **Geodesic**: `geodesic-dome`. A subdivided icosahedron with every hub on one sphere, in one or two layers.
+- **Tibetan**: `tibetan-palace`. Battered walls with windows that grow toward the roof, as a Potala-type palace or a courtyard dzong.
+- **Mughal**: `mughal-tomb`. A domed garden tomb in strict four-fold symmetry, with or without minarets.
+
+Eight more historic architects join them: **Byzantine** (`byzantine-church`,
+a cross-in-square church with a pendentive dome, in four plans),
+**Sudano-Sahelian** (`sahelian-mosque`), **Imperial Inka** (`inka-kancha`),
+**Angkor Khmer** (`khmer-temple-mountain`), **Swahili Coast**
+(`swahili-courtyard-house`), **Minangkabau** (`minangkabau-rumah-gadang`),
+**Chacoan** (`chacoan-great-house`) and the **Brutalism Studio** (four
+concrete briefs).
+
+```bash
+blockn sonnet mughal-tomb --describe                 # the form: its lines and answers
+blockn sonnet muscovite-church --count 12 --detail concept --output builds/churches
+blockn make buddhist-stupa --seed 7 --param anda=bell --bundle builds/stupa
+blockn make byzantine-church --variant five-dome --bundle builds/byzantine
+```
+
+![Four verses of each of the nine sonnet forms](public/sonnets/anthology.png)
+![Twelve verses of the Muscovite church, no verse repeated](public/sonnets/muscovite-church.png)
+
+Each architect is audited against rules measured from the finished members.
+See [architecture sonnets](docs/ARCHITECTURE_SONNETS.md),
+[historic architects](docs/HISTORIC_ARCHITECTS.md) and the
+[Brutalism Studio](docs/BRUTALISM_STUDIO.md) for the rules each one follows
+and what each model leaves out.
+
 ## New architect: Nordic Stave
 
 <a href="https://newjordan.github.io/BlockN/public/blockn-nordic-stave.mp4"><img src="public/blockn-stave-church.png" alt="BlockN showcase: a Borgund-style Nordic stave church and raised stabbur assembling member by member and weathering in PBR" width="540"></a>

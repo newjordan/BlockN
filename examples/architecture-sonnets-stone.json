@@ -1,0 +1,10 @@
+{
+  "schema_version": "blockn.kitbash/v1",
+  "spacing": 12,
+  "columns": 3,
+  "buildings": [
+    {"id": "zimbabwe-enclosure-great-enclosure", "request": {"architect": "zimbabwe", "product": "zimbabwe-enclosure", "seed": 3, "width": 44.0, "height": 9.0, "depth": 41.0, "style": "zimbabwe-dry-stone", "detail": "concept", "variant": "great-enclosure", "bays": null, "levels": null, "openings": "auto", "parameters": {"band": "chevron", "entrances": "two", "huts": "ring", "tower": "single"}, "age": 0.35}},
+    {"id": "tibetan-palace-potala", "request": {"architect": "tibetan", "product": "tibetan-palace", "seed": 3, "width": 52.0, "height": 33.0, "depth": 36.0, "style": "tibetan-fortress-palace", "detail": "concept", "variant": "potala", "bays": null, "levels": null, "openings": "auto", "parameters": {"frieze": "single", "roofs": "gilded-pavilions", "stair": "axial", "wings": "stepped"}, "age": 0.35}},
+    {"id": "mughal-tomb-taj", "request": {"architect": "mughal", "product": "mughal-tomb", "seed": 7, "width": 43.0, "height": 35.0, "depth": 43.0, "style": "mughal-garden-tomb", "detail": "concept", "variant": "taj", "bays": null, "levels": null, "openings": "auto", "parameters": {"chhatris": "octagonal", "dome": "onion", "finial": "spire", "niches": "two-storey"}, "age": 0.35}}
+  ]
+}
